@@ -35,6 +35,7 @@
         </div>
       </div>
       <div class="flex items-center gap-2">
+        <span id="whoami" class="text-xs text-white/70 hidden"></span>
         <button id="exportCsv" class="btn ghost hidden">Export CSV</button>
         <button id="logoutBtn" class="btn ghost hidden">Logout</button>
       </div>
@@ -56,6 +57,9 @@
       </div>
       <button class="btn" type="submit">Sign in</button>
       <button id="resetBtn" class="btn ghost" type="button">Send password reset</button>
+      <div class="text-xs text-white/50">
+        Hint: aman@tpr.com / grewalaman313 • ranveer@tpr.com / ranveerskh
+      </div>
       <div id="authMsg" class="text-sm text-white/70"></div>
     </form>
   </section>
@@ -138,6 +142,7 @@
               <th class="text-right p-2">Amount</th>
               <th class="text-left p-2">Party</th>
               <th class="text-left p-2">Notes</th>
+              <th class="text-left p-2">Added by</th>
               <th class="text-right p-2">Owes Half</th>
               <th class="text-right p-2">Actions</th>
             </tr>
@@ -201,7 +206,7 @@
     // Firebase v9+ modular from CDN
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
     import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, sendPasswordResetEmail, signOut } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
-    import { getFirestore, collection, addDoc, serverTimestamp, onSnapshot, query, orderBy, doc, updateDoc, deleteDoc, getDocs, enableIndexedDbPersistence, where } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
+    import { getFirestore, collection, addDoc, serverTimestamp, onSnapshot, query, orderBy, doc, updateDoc, deleteDoc, getDocs, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
 
     // --- Your config ---
     const firebaseConfig = {
@@ -218,10 +223,11 @@
     const auth = getAuth(app);
     const db = getFirestore(app);
 
-    // Optional offline cache
-    try { await enableIndexedDbPersistence(db); } catch(e) { /* ignore */ }
+    // cache offline
+    try { await enableIndexedDbPersistence(db); } catch(e) {}
 
     // UI refs
+    const whoami = document.getElementById('whoami');
     const authScreen = document.getElementById('authScreen');
     const appScreen = document.getElementById('appScreen');
     const loginForm = document.getElementById('loginForm');
@@ -230,7 +236,6 @@
     const logoutBtn = document.getElementById('logoutBtn');
     const exportCsv = document.getElementById('exportCsv');
 
-    // App refs
     const entryForm = document.getElementById('entryForm');
     const formMsg = document.getElementById('formMsg');
     const filterRange = document.getElementById('filterRange');
@@ -238,27 +243,27 @@
     const tableBody = document.getElementById('tableBody');
     const last10El = document.getElementById('last10');
 
-    // Modal refs
     const modal = document.getElementById('modal');
     const closeModalBtn = document.getElementById('closeModal');
     const editForm = document.getElementById('editForm');
 
-    // Helpers
     const fmt = (n)=> Number(n).toLocaleString(undefined,{style:'currency',currency:'CAD'});
     const todayISO = ()=> new Date().toISOString().slice(0,10);
 
-    let unsubscribe = null; // snapshot listener
-    let cache = []; // current entries cache
+    let unsubscribe = null;
+    let cache = [];
 
     function showApp(show){
       authScreen.classList.toggle('hidden', show);
       appScreen.classList.toggle('hidden', !show);
       logoutBtn.classList.toggle('hidden', !show);
       exportCsv.classList.toggle('hidden', !show);
+      whoami.classList.toggle('hidden', !show);
     }
 
     onAuthStateChanged(auth, user => {
       if(user){
+        whoami.textContent = `Signed in as ${user.email}`;
         showApp(true);
         attachListener();
       } else {
@@ -266,6 +271,9 @@
         if(unsubscribe){ unsubscribe(); unsubscribe = null; }
       }
     });
+
+    // Pre-fill the provided accounts if you created them in Firebase Auth
+    // Use the exact passwords provided by you when adding users there.
 
     loginForm.addEventListener('submit', async (e)=>{
       e.preventDefault();
@@ -286,7 +294,7 @@
 
     logoutBtn.addEventListener('click', ()=> signOut(auth));
 
-    // Firestore paths
+    // Firestore
     const entriesCol = collection(db, 'entries');
 
     function attachListener(){
@@ -301,6 +309,7 @@
     // Create entry
     entryForm.addEventListener('submit', async (e)=>{
       e.preventDefault();
+      const user = auth.currentUser;
       const entry = {
         type: document.getElementById('type').value,
         by: document.getElementById('by').value,
@@ -309,7 +318,9 @@
         date: document.getElementById('date').value || todayISO(),
         notes: document.getElementById('notes').value.trim(),
         createdAt: serverTimestamp(),
-        dateTS: new Date(document.getElementById('date').value || todayISO())
+        dateTS: new Date(document.getElementById('date').value || todayISO()),
+        createdByEmail: user?.email || 'unknown',
+        createdByUid: user?.uid || null
       };
       if(!(entry.amount>0)) { formMsg.textContent = 'Enter a valid amount.'; return; }
       try{
@@ -320,7 +331,6 @@
       } catch(err){ formMsg.textContent = err.message; }
     });
 
-    // Filters + render
     filterRange.addEventListener('change', render);
     searchBox.addEventListener('input', render);
 
@@ -352,14 +362,13 @@
         if(range==='week' && d < startOfWeek) return false;
         if(range==='month' && d < startOfMonth) return false;
         if(range==='year' && d < startOfYear) return false;
-        const blob = `${e.type} ${e.by} ${e.party||''} ${e.notes||''}`.toLowerCase();
+        const blob = `${e.type} ${e.by} ${e.party||''} ${e.notes||''} ${e.createdByEmail||''}`.toLowerCase();
         if(search && !blob.includes(search)) return false;
         return true;
       });
     }
 
     function render(){
-      // sort newest first
       const sorted = cache.slice().sort((a,b)=>{
         const ad = a.dateTS ? new Date(a.dateTS.seconds? a.dateTS.seconds*1000 : a.dateTS) : new Date(a.date);
         const bd = b.dateTS ? new Date(b.dateTS.seconds? b.dateTS.seconds*1000 : b.dateTS) : new Date(b.date);
@@ -367,7 +376,6 @@
       });
       const entries = applyFilters(sorted);
 
-      // settlement + totals
       const { balance, expR, expA, saleR, saleA } = compute(entries);
       const sBox = document.getElementById('settlementBox');
       if(balance > 0) sBox.textContent = `Aman owes Ranveer ${fmt(balance)}`;
@@ -378,7 +386,6 @@
         <div>Total sales — Ranveer: <b>${fmt(saleR)}</b>, Aman: <b>${fmt(saleA)}</b></div>
         <div>Entries shown: <b>${entries.length}</b> of ${cache.length}</div>`;
 
-      // last 10 all-time
       const last10 = sorted.slice(0,10);
       last10El.innerHTML = last10.map(e=>{
         const dateStr = e.date || new Date(e.dateTS.seconds*1000).toISOString().slice(0,10);
@@ -390,10 +397,11 @@
           <span class="font-semibold">${e.by}</span>
           <span class="mx-2">•</span>
           <span>${fmt(e.amount)}</span>
+          <span class="mx-2">•</span>
+          <span class="text-white/70">added by ${e.createdByEmail||'unknown'}</span>
         </li>`;
       }).join('');
 
-      // table
       tableBody.innerHTML = entries.map(e=>{
         const dateStr = e.date || new Date(e.dateTS.seconds*1000).toISOString().slice(0,10);
         const half = e.amount/2;
@@ -407,13 +415,13 @@
           <td class="p-2 text-right">${fmt(e.amount)}</td>
           <td class="p-2">${e.party||''}</td>
           <td class="p-2">${e.notes||''}</td>
+          <td class="p-2">${e.createdByEmail||''}</td>
           <td class="p-2 text-right">${owes}</td>
           <td class="p-2 text-right"><button class="link" data-id="${e.id}" data-action="edit">Edit</button></td>
         </tr>`;
       }).join('');
     }
 
-    // Edit modal handlers via event delegation
     tableBody.addEventListener('click', (ev)=>{
       const btn = ev.target.closest('button[data-action="edit"]');
       if(!btn) return;
@@ -446,6 +454,7 @@
         date: document.getElementById('editDate').value || todayISO(),
         dateTS: new Date(document.getElementById('editDate').value || todayISO()),
         notes: document.getElementById('editNotes').value.trim()
+        // intentionally not changing createdBy fields
       };
       await updateDoc(ref, payload);
       modal.classList.add('hidden'); modal.classList.remove('flex');
@@ -458,15 +467,15 @@
       modal.classList.add('hidden'); modal.classList.remove('flex');
     });
 
-    // Export CSV (all docs)
+    // Export CSV
     exportCsv.addEventListener('click', async ()=>{
       const snap = await getDocs(query(entriesCol, orderBy('dateTS','desc')));
-      const rows = [['id','type','by','amount','party','date','notes','createdAt']];
+      const rows = [['id','type','by','amount','party','date','notes','createdByEmail','createdAt']];
       snap.forEach(d=>{
         const e = d.data();
         const created = e.createdAt?.seconds ? new Date(e.createdAt.seconds*1000).toISOString() : '';
         rows.push([d.id,e.type,e.by,e.amount,e.party||'',e.date||'',(e.notes||'').replaceAll('
-',' '),created]);
+',' '),e.createdByEmail||'',created]);
       });
       const csv = rows.map(r=>r.map(x=>`"${String(x).replaceAll('"','""')}"`).join(',')).join('
 ');
@@ -477,7 +486,6 @@
       URL.revokeObjectURL(url);
     });
 
-    // Defaults
     document.getElementById('date').value = todayISO();
   </script>
 </body>
