@@ -278,6 +278,19 @@
       const email = document.getElementById('email').value.trim();
       const password = document.getElementById('password').value;
       try{
+        const cred = await signInWithEmailAndPassword(auth, email, password);
+        // Immediate UI switch; onAuthStateChanged will also run
+        whoami.textContent = `Signed in as ${cred.user.email}`;
+        showApp(true);
+      } catch(err){
+        console.error(err);
+        authMsg.textContent = (err && err.message) ? err.message : 'Login failed. Check email/password and try again.';
+      }
+    });
+      authMsg.textContent = '';
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      try{
         await signInWithEmailAndPassword(auth, email, password);
       } catch(err){ authMsg.textContent = err.message; }
     });
