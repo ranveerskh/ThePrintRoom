@@ -42,6 +42,9 @@
     </div>
   </header>
 
+  <!-- Diagnostics banner -->
+  <div id="diag" class="hidden bg-red-600/20 text-red-200 text-sm px-4 py-2 text-center"></div>
+
   <!-- Auth Screen -->
   <section id="authScreen" class="max-w-md mx-auto p-6 mt-10 card">
     <h2 class="text-xl font-bold">Sign in</h2>
@@ -245,6 +248,8 @@
     const editForm = document.getElementById('editForm');
 
     const fmt = (n)=> Number(n).toLocaleString(undefined,{style:'currency',currency:'CAD'});
+    const diagEl = document.getElementById('diag');
+    function diag(msg){ if(!msg){ diagEl.classList.add('hidden'); diagEl.textContent=''; } else { diagEl.textContent = msg; diagEl.classList.remove('hidden'); }}
     const todayISO = ()=> new Date().toISOString().slice(0,10);
 
     let unsubscribe = null;
@@ -263,6 +268,7 @@
         whoami.textContent = `Signed in as ${user.email}`;
         showApp(true);
         attachListener();
+        diag('');
       } else {
         showApp(false);
         if(unsubscribe){ unsubscribe(); unsubscribe = null; }
@@ -274,6 +280,20 @@
 
     loginForm.addEventListener('submit', async (e)=>{
       e.preventDefault();
+      authMsg.textContent = '';
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      try{
+        const cred = await signInWithEmailAndPassword(auth, email, password);
+        whoami.textContent = `Signed in as ${cred.user.email}`;
+        showApp(true);
+        diag('');
+      } catch(err){
+        console.error(err);
+        authMsg.textContent = (err && err.message) ? err.message : 'Login failed.';
+        diag(`Auth error: ${err?.code||''} — ${err?.message||''}. Make sure Email/Password is enabled and this domain is in Authorized Domains.`);
+      }
+    });
       authMsg.textContent = '';
       const email = document.getElementById('email').value.trim();
       const password = document.getElementById('password').value;
@@ -309,9 +329,20 @@
 
     function attachListener(){
       if(unsubscribe) unsubscribe();
-      const q = query(entriesCol, orderBy('dateTS','desc'), orderBy('createdAt','desc'));
-      unsubscribe = onSnapshot(q, snap => {
-        cache = snap.docs.map(d=> ({ id: d.id, ...d.data() }));
+      try{
+        const q = query(entriesCol, orderBy('dateTS','desc'), orderBy('createdAt','desc'));
+        unsubscribe = onSnapshot(q, snap => {
+          cache = snap.docs.map(d=> ({ id: d.id, ...d.data() }));
+          render();
+        }, err => {
+          console.error('Snapshot error', err);
+          diag(`Firestore error: ${err?.code||''} — ${err?.message||''}. Did you create the Firestore database and publish rules?`);
+        });
+      } catch(e){
+        console.error('Listener failed', e);
+        diag(`Listener failed: ${e?.message||e}`);
+      }
+    }));
         render();
       });
     }
