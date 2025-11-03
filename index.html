@@ -31,7 +31,7 @@
         </div>
         <div>
           <div class="font-bold">The Print Room — Partner Ledger</div>
-          <div class="text-xs text-white/60">Two‑way split tracker for Ranveer & Aman</div>
+          <div class="text-xs text-white/60">Two-way split tracker for Ranveer & Aman</div>
         </div>
       </div>
       <div class="flex items-center gap-2">
@@ -49,7 +49,7 @@
     <form id="loginForm" class="grid gap-3 mt-4">
       <div class="grid gap-1">
         <label class="text-xs text-white/70">Email</label>
-        <input id="email" type="email" class="input" placeholder="you@example.com" required />
+        <input id="email" type="email" class="input" placeholder="you@example.com" required autofocus />
       </div>
       <div class="grid gap-1">
         <label class="text-xs text-white/70">Password</label>
@@ -57,9 +57,6 @@
       </div>
       <button class="btn" type="submit">Sign in</button>
       <button id="resetBtn" class="btn ghost" type="button">Send password reset</button>
-      <div class="text-xs text-white/50">
-        Hint: aman@tpr.com / grewalaman313 • ranveer@tpr.com / ranveerskh
-      </div>
       <div id="authMsg" class="text-sm text-white/70"></div>
     </form>
   </section>
@@ -224,7 +221,7 @@
     const db = getFirestore(app);
 
     // cache offline
-    try { await enableIndexedDbPersistence(db); } catch(e) {}
+    try { await enableIndexedDbPersistence(db); } catch(e) { /* ignore */ }
 
     // UI refs
     const whoami = document.getElementById('whoami');
@@ -272,9 +269,6 @@
       }
     });
 
-    // Pre-fill the provided accounts if you created them in Firebase Auth
-    // Use the exact passwords provided by you when adding users there.
-
     loginForm.addEventListener('submit', async (e)=>{
       e.preventDefault();
       authMsg.textContent = '';
@@ -299,10 +293,13 @@
 
     function attachListener(){
       if(unsubscribe) unsubscribe();
-      const q = query(entriesCol, orderBy('dateTS','desc'), orderBy('createdAt','desc'));
+      // Single orderBy to avoid composite index requirement
+      const q = query(entriesCol, orderBy('createdAt','desc'));
       unsubscribe = onSnapshot(q, snap => {
         cache = snap.docs.map(d=> ({ id: d.id, ...d.data() }));
         render();
+      }, err => {
+        console.error('Listener error:', err);
       });
     }
 
@@ -310,15 +307,16 @@
     entryForm.addEventListener('submit', async (e)=>{
       e.preventDefault();
       const user = auth.currentUser;
+      const rawDate = document.getElementById('date').value || todayISO();
       const entry = {
         type: document.getElementById('type').value,
         by: document.getElementById('by').value,
         amount: parseFloat(document.getElementById('amount').value||'0'),
         party: document.getElementById('party').value.trim(),
-        date: document.getElementById('date').value || todayISO(),
+        date: rawDate,
         notes: document.getElementById('notes').value.trim(),
         createdAt: serverTimestamp(),
-        dateTS: new Date(document.getElementById('date').value || todayISO()),
+        dateTS: new Date(rawDate),
         createdByEmail: user?.email || 'unknown',
         createdByUid: user?.uid || null
       };
@@ -333,6 +331,16 @@
 
     filterRange.addEventListener('change', render);
     searchBox.addEventListener('input', render);
+
+    function asDate(val){
+      if(!val) return new Date(0);
+      // Firestore Timestamp
+      if(val.seconds && typeof val.seconds === 'number'){ return new Date(val.seconds*1000); }
+      // JS Date
+      if(val instanceof Date){ return new Date(val.getTime()); }
+      // ISO string
+      return new Date(val);
+    }
 
     function compute(entries){
       let balance=0, expR=0, expA=0, saleR=0, saleA=0;
@@ -358,7 +366,7 @@
       const startOfYear = new Date(now.getFullYear(), 0, 1);
 
       return list.filter(e=>{
-        const d = e.dateTS ? new Date(e.dateTS.seconds ? e.dateTS.seconds*1000 : e.dateTS) : new Date(e.date);
+        const d = asDate(e.dateTS || e.date);
         if(range==='week' && d < startOfWeek) return false;
         if(range==='month' && d < startOfMonth) return false;
         if(range==='year' && d < startOfYear) return false;
@@ -369,11 +377,7 @@
     }
 
     function render(){
-      const sorted = cache.slice().sort((a,b)=>{
-        const ad = a.dateTS ? new Date(a.dateTS.seconds? a.dateTS.seconds*1000 : a.dateTS) : new Date(a.date);
-        const bd = b.dateTS ? new Date(b.dateTS.seconds? b.dateTS.seconds*1000 : b.dateTS) : new Date(b.date);
-        return bd - ad;
-      });
+      const sorted = cache.slice().sort((a,b)=> asDate(b.dateTS||b.date) - asDate(a.dateTS||a.date));
       const entries = applyFilters(sorted);
 
       const { balance, expR, expA, saleR, saleA } = compute(entries);
@@ -388,7 +392,8 @@
 
       const last10 = sorted.slice(0,10);
       last10El.innerHTML = last10.map(e=>{
-        const dateStr = e.date || new Date(e.dateTS.seconds*1000).toISOString().slice(0,10);
+        const d = asDate(e.dateTS || e.date);
+        const dateStr = isNaN(d) ? (e.date || '') : d.toISOString().slice(0,10);
         return `<li class="chip rounded-xl px-3 py-2">
           <span class="text-white/70">${dateStr}</span>
           <span class="mx-2">•</span>
@@ -403,7 +408,8 @@
       }).join('');
 
       tableBody.innerHTML = entries.map(e=>{
-        const dateStr = e.date || new Date(e.dateTS.seconds*1000).toISOString().slice(0,10);
+        const d = asDate(e.dateTS || e.date);
+        const dateStr = isNaN(d) ? (e.date || '') : d.toISOString().slice(0,10);
         const half = e.amount/2;
         const owes = e.type==='expense'
           ? (e.by==='Ranveer' ? `Aman → ${fmt(half)}` : `Ranveer → ${fmt(half)}`)
@@ -433,8 +439,8 @@
       document.getElementById('editBy').value = e.by;
       document.getElementById('editAmount').value = e.amount;
       document.getElementById('editParty').value = e.party||'';
-      const d = e.date || new Date(e.dateTS.seconds*1000).toISOString().slice(0,10);
-      document.getElementById('editDate').value = d;
+      const d = asDate(e.dateTS || e.date);
+      document.getElementById('editDate').value = isNaN(d) ? (e.date || '') : d.toISOString().slice(0,10);
       document.getElementById('editNotes').value = e.notes||'';
       modal.classList.remove('hidden');
       modal.classList.add('flex');
@@ -446,15 +452,16 @@
       ev.preventDefault();
       const id = document.getElementById('editId').value;
       const ref = doc(db, 'entries', id);
+      const rawDate = document.getElementById('editDate').value || todayISO();
       const payload = {
         type: document.getElementById('editType').value,
         by: document.getElementById('editBy').value,
         amount: parseFloat(document.getElementById('editAmount').value||'0'),
         party: document.getElementById('editParty').value.trim(),
-        date: document.getElementById('editDate').value || todayISO(),
-        dateTS: new Date(document.getElementById('editDate').value || todayISO()),
+        date: rawDate,
+        dateTS: new Date(rawDate),
         notes: document.getElementById('editNotes').value.trim()
-        // intentionally not changing createdBy fields
+        // keep createdBy fields intact
       };
       await updateDoc(ref, payload);
       modal.classList.add('hidden'); modal.classList.remove('flex');
@@ -469,16 +476,15 @@
 
     // Export CSV
     exportCsv.addEventListener('click', async ()=>{
-      const snap = await getDocs(query(entriesCol, orderBy('dateTS','desc')));
+      const snap = await getDocs(query(entriesCol, orderBy('createdAt','desc')));
       const rows = [['id','type','by','amount','party','date','notes','createdByEmail','createdAt']];
       snap.forEach(d=>{
         const e = d.data();
         const created = e.createdAt?.seconds ? new Date(e.createdAt.seconds*1000).toISOString() : '';
-        rows.push([d.id,e.type,e.by,e.amount,e.party||'',e.date||'',(e.notes||'').replaceAll('
-',' '),e.createdByEmail||'',created]);
+        const notes = (e.notes||'').replaceAll('\n',' ').replaceAll('\r',' ');
+        rows.push([d.id,e.type,e.by,e.amount,e.party||'',e.date||'',notes,e.createdByEmail||'',created]);
       });
-      const csv = rows.map(r=>r.map(x=>`"${String(x).replaceAll('"','""')}"`).join(',')).join('
-');
+      const csv = rows.map(r=>r.map(x=>`"${String(x).replaceAll('"','""')}"`).join(',')).join('\n');
       const blob = new Blob([csv],{type:'text/csv;charset=utf-8;'});
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
