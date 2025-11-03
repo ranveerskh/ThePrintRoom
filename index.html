@@ -2,132 +2,130 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>The Print Room — Partner Ledger (Firebase)</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com"></script>
 <script>
-  tailwind.config = { theme: { extend: { colors: { base: { bg:'#0f1628', card:'#18223c', ink:'#eef1ff', line:'#2a3357', acc:'#6c85ff' }}}}};
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          base: { bg:'#0f1628', card:'#18223c', ink:'#eef1ff', line:'#2a3357', acc:'#6c85ff', good:'#34d399', bad:'#fb7185' }
+        },
+        boxShadow: {
+          soft: '0 8px 30px rgba(0,0,0,.25)'
+        }
+      }
+    }
+  }
 </script>
 <style>
-  body{background:#0f1628;color:#eef1ff;font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+  :root { color-scheme: dark; }
+  body{
+    background:#0f1628;color:#eef1ff;font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+    padding-top: env(safe-area-inset-top); padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right);
+  }
   .card{background:#18223c;border:1px solid #2a3357;border-radius:16px}
   .chip{border:1px solid #2a3357}
-  .input{background:transparent;border:1px solid #2a3357;border-radius:12px;padding:.75rem}
+  .input{background:transparent;border:1px solid #2a3357;border-radius:12px;padding:.75rem;font-size:16px}
   .btn{background:#6c85ff;color:#000;font-weight:600;border-radius:12px;padding:.75rem 1rem}
   .btn.ghost{background:transparent;border:1px solid #2a3357;color:#eef1ff}
+  .seg{border:1px solid #2a3357;border-radius:12px;overflow:hidden}
+  .seg button{padding:.5rem .9rem}
+  .seg .on{background:#2a3357}
   table{border-collapse:separate;border-spacing:0}
   th,td{border-bottom:1px solid #2a3357}
   tr:last-child td{border-bottom:none}
   .hidden{display:none}
+  /* iOS keyboard-safe modal sheet */
+  .sheet{position:fixed;inset:0;display:none}
+  .sheet.on{display:flex}
+  .sheet .panel{background:#18223c;border:1px solid #2a3357;border-radius:20px 20px 0 0;margin-top:auto;width:100%;
+    max-height:92vh;overflow:auto;box-shadow:var(--shadow, 0 10px 50px rgba(0,0,0,.45));padding-bottom:env(safe-area-inset-bottom)}
+  .tap-target{min-height:44px;min-width:44px}
 </style>
 </head>
 <body class="min-h-screen">
+  <!-- Minimal iOS-friendly Header -->
   <header class="sticky top-0 z-30 backdrop-blur bg-black/20 border-b border-[#2a3357]">
-    <div class="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
       <div class="flex items-center gap-3">
         <div class="h-9 w-9 rounded-xl bg-[#6c85ff]/20 grid place-items-center">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 7h16M4 12h10M4 17h16" stroke="#9db0ff" stroke-width="2" stroke-linecap="round"/></svg>
         </div>
-        <div>
-          <div class="font-bold">The Print Room — Partner Ledger</div>
-          <div class="text-xs text-white/60">Two-way split tracker for Ranveer & Aman</div>
-        </div>
+        <div class="font-bold">The Print Room — Ledger</div>
       </div>
-      <div class="flex items-center gap-2">
-        <span id="whoami" class="text-xs text-white/70 hidden"></span>
-        <button id="exportCsv" class="btn ghost hidden">Export CSV</button>
-        <button id="logoutBtn" class="btn ghost hidden">Logout</button>
-      </div>
+      <button id="logoutBtn" class="btn ghost tap-target hidden">Logout</button>
     </div>
   </header>
 
   <!-- Auth Screen -->
   <section id="authScreen" class="max-w-md mx-auto p-6 mt-10 card">
     <h2 class="text-xl font-bold">Sign in</h2>
-    <p class="text-sm text-white/70 mt-1">Only partners with accounts can access the ledger.</p>
+    <p class="text-sm text-white/70 mt-1">Partners only.</p>
     <form id="loginForm" class="grid gap-3 mt-4">
       <div class="grid gap-1">
         <label class="text-xs text-white/70">Email</label>
-        <input id="email" type="email" class="input" placeholder="you@example.com" required autofocus />
+        <input id="email" type="email" class="input" placeholder="you@example.com" required />
       </div>
       <div class="grid gap-1">
         <label class="text-xs text-white/70">Password</label>
         <input id="password" type="password" class="input" placeholder="••••••••" required />
       </div>
-      <button class="btn" type="submit">Sign in</button>
-      <button id="resetBtn" class="btn ghost" type="button">Send password reset</button>
+      <button class="btn tap-target" type="submit">Sign in</button>
+      <button id="resetBtn" class="btn ghost tap-target" type="button">Send password reset</button>
       <div id="authMsg" class="text-sm text-white/70"></div>
     </form>
   </section>
 
   <!-- App Screen -->
-  <main id="appScreen" class="max-w-7xl mx-auto px-4 py-6 grid lg:grid-cols-3 gap-6 hidden">
-    <!-- Left: Add / Balance -->
-    <section class="lg:col-span-1 space-y-6">
-      <div class="card p-5">
-        <h2 class="text-lg font-bold">Add entry</h2>
-        <p class="text-sm text-white/70">Add every business expense or sale. The math splits 50/50 automatically.</p>
-        <form id="entryForm" class="mt-4 grid gap-3">
-          <div class="grid gap-1">
-            <label class="text-xs text-white/70">Type</label>
-            <select id="type" class="input" required>
-              <option value="expense">Expense / Purchase</option>
-              <option value="sale">Sale / Payment received</option>
-            </select>
+  <main id="appScreen" class="max-w-7xl mx-auto px-4 py-6 grid gap-6 hidden">
+    <!-- Settlement + P/L summary -->
+    <section class="grid lg:grid-cols-3 gap-6">
+      <div class="card p-5 lg:col-span-3">
+        <div class="flex items-center justify-between gap-3 flex-wrap">
+          <div>
+            <div class="text-sm text-white/60">Settlement • <span id="activeRangeLabel">This month</span></div>
+            <div id="settlementBox" class="mt-1 text-2xl font-extrabold"></div>
+            <div id="settleMeta" class="text-xs text-white/60 mt-1"></div>
           </div>
-          <div class="grid gap-1">
-            <label class="text-xs text-white/70">Who made it</label>
-            <select id="by" class="input" required>
-              <option value="Ranveer">Ranveer</option>
-              <option value="Aman">Aman</option>
-            </select>
+          <div class="seg flex">
+            <button class="tap-target" data-range="week">Week</button>
+            <button class="tap-target on" data-range="month">Month</button>
+            <button class="tap-target" data-range="year">Year</button>
+            <button class="tap-target" data-range="life">All</button>
           </div>
-          <div class="grid gap-1">
-            <label class="text-xs text-white/70">Amount (CAD)</label>
-            <input id="amount" type="number" step="0.01" min="0" class="input" placeholder="100" required />
-          </div>
-          <div class="grid gap-1">
-            <label class="text-xs text-white/70">Sold to / Bought from</label>
-            <input id="party" class="input" placeholder="Client or supplier name" />
-          </div>
-          <div class="grid gap-1">
-            <label class="text-xs text-white/70">Date</label>
-            <input id="date" type="date" class="input" />
-          </div>
-          <div class="grid gap-1">
-            <label class="text-xs text-white/70">Notes</label>
-            <textarea id="notes" class="input" rows="2" placeholder="Paper stock, job id, etc."></textarea>
-          </div>
-          <button class="btn" type="submit">Save entry</button>
-          <div id="formMsg" class="text-sm text-white/70"></div>
-        </form>
+        </div>
       </div>
 
       <div class="card p-5">
-        <h2 class="text-lg font-bold">Settlement</h2>
-        <p class="text-sm text-white/70">Net balance considering halves of every expense and sale.</p>
-        <div id="settlementBox" class="mt-4 text-xl font-bold"></div>
-        <div id="totals" class="mt-3 text-sm text-white/70"></div>
+        <div class="text-sm text-white/60">Profit/Loss • This month</div>
+        <div id="plMonth" class="mt-1 text-2xl font-extrabold"></div>
+        <div id="plMonthMeta" class="text-xs text-white/60 mt-1"></div>
+      </div>
+      <div class="card p-5">
+        <div class="text-sm text-white/60">Profit/Loss • This year</div>
+        <div id="plYear" class="mt-1 text-2xl font-extrabold"></div>
+        <div id="plYearMeta" class="text-xs text-white/60 mt-1"></div>
+      </div>
+      <div class="card p-5">
+        <div class="text-sm text-white/60">Profit/Loss • Lifetime</div>
+        <div id="plLife" class="mt-1 text-2xl font-extrabold"></div>
+        <div id="plLifeMeta" class="text-xs text-white/60 mt-1"></div>
       </div>
 
-      <div class="card p-5">
-        <h2 class="text-lg font-bold">Last 10 entries</h2>
-        <ul id="last10" class="mt-3 grid gap-2 text-sm"></ul>
+      <div class="lg:col-span-3 flex items-center gap-3">
+        <button id="openAdd" class="btn tap-target">Add entry</button>
       </div>
     </section>
 
-    <!-- Right: Table -->
-    <section class="lg:col-span-2 card p-5">
+    <!-- Entries List -->
+    <section class="card p-5">
       <div class="flex flex-wrap items-center gap-2">
-        <h2 class="text-lg font-bold mr-auto">All entries</h2>
-        <select id="filterRange" class="input">
-          <option value="life">All time</option>
-          <option value="week">This week</option>
-          <option value="month">This month</option>
-          <option value="year">This year</option>
-        </select>
-        <input id="searchBox" class="input" placeholder="Search name, notes…" />
+        <h2 class="text-lg font-bold mr-auto">Entries</h2>
+        <input id="searchBox" class="input" placeholder="Search party, notes…" />
+        <button id="exportCsv" class="btn ghost tap-target">Export CSV (filtered)</button>
       </div>
       <div class="overflow-auto mt-4">
         <table class="w-full text-sm">
@@ -151,49 +149,50 @@
     </section>
   </main>
 
-  <!-- Edit Modal -->
-  <div id="modal" class="fixed inset-0 bg-black/60 hidden items-center justify-center p-4">
-    <div class="card p-5 w-full max-w-lg">
-      <div class="flex items-center justify-between">
-        <h3 class="font-bold">Edit entry</h3>
-        <button id="closeModal" class="btn ghost">Close</button>
+  <!-- Add/Edit Sheet -->
+  <div id="sheet" class="sheet items-stretch justify-center">
+    <div class="panel">
+      <div class="p-4 border-b border-[#2a3357] flex items-center justify-between sticky top-0 bg-[#18223c]">
+        <div class="font-bold">Entry</div>
+        <button id="closeSheet" class="btn ghost tap-target">Close</button>
       </div>
-      <form id="editForm" class="mt-4 grid gap-3">
+      <form id="entryForm" class="p-4 grid gap-3">
         <input type="hidden" id="editId" />
         <div class="grid gap-1">
           <label class="text-xs text-white/70">Type</label>
-          <select id="editType" class="input" required>
+          <select id="type" class="input" required>
             <option value="expense">Expense / Purchase</option>
             <option value="sale">Sale / Payment received</option>
           </select>
         </div>
         <div class="grid gap-1">
           <label class="text-xs text-white/70">Who made it</label>
-          <select id="editBy" class="input" required>
+          <select id="by" class="input" required>
             <option value="Ranveer">Ranveer</option>
             <option value="Aman">Aman</option>
           </select>
         </div>
         <div class="grid gap-1">
           <label class="text-xs text-white/70">Amount (CAD)</label>
-          <input id="editAmount" type="number" step="0.01" min="0" class="input" required />
+          <input id="amount" type="number" step="0.01" min="0" class="input" placeholder="100" required />
         </div>
         <div class="grid gap-1">
           <label class="text-xs text-white/70">Sold to / Bought from</label>
-          <input id="editParty" class="input" />
+          <input id="party" class="input" placeholder="Client or supplier name" />
         </div>
         <div class="grid gap-1">
           <label class="text-xs text-white/70">Date</label>
-          <input id="editDate" type="date" class="input" />
+          <input id="date" type="date" class="input" />
         </div>
         <div class="grid gap-1">
           <label class="text-xs text-white/70">Notes</label>
-          <textarea id="editNotes" class="input" rows="2"></textarea>
+          <textarea id="notes" class="input" rows="3" placeholder="Paper stock, job id, etc."></textarea>
         </div>
-        <div class="flex items-center gap-2">
-          <button class="btn" type="submit">Save changes</button>
-          <button id="deleteEntry" type="button" class="btn ghost">Delete</button>
+        <div class="flex items-center gap-2 pt-2">
+          <button class="btn tap-target" type="submit">Save</button>
+          <button id="deleteEntry" type="button" class="btn ghost tap-target hidden">Delete</button>
         </div>
+        <div id="formMsg" class="text-sm text-white/70"></div>
       </form>
     </div>
   </div>
@@ -205,7 +204,7 @@
     import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, sendPasswordResetEmail, signOut } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
     import { getFirestore, collection, addDoc, serverTimestamp, onSnapshot, query, orderBy, doc, updateDoc, deleteDoc, getDocs, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
 
-    // --- Your config ---
+    // --- Config (yours) ---
     const firebaseConfig = {
       apiKey: "AIzaSyBALPTzgm1uiVCW4bwMJC2TPrWSsF-cCwQ",
       authDomain: "theprintroomlondon-6f586.firebaseapp.com",
@@ -220,47 +219,73 @@
     const auth = getAuth(app);
     const db = getFirestore(app);
 
-    // cache offline
-    try { await enableIndexedDbPersistence(db); } catch(e) { /* ignore */ }
+    try { await enableIndexedDbPersistence(db); } catch(e) {}
 
     // UI refs
-    const whoami = document.getElementById('whoami');
     const authScreen = document.getElementById('authScreen');
     const appScreen = document.getElementById('appScreen');
     const loginForm = document.getElementById('loginForm');
     const authMsg = document.getElementById('authMsg');
     const resetBtn = document.getElementById('resetBtn');
     const logoutBtn = document.getElementById('logoutBtn');
-    const exportCsv = document.getElementById('exportCsv');
+
+    const activeRangeLabel = document.getElementById('activeRangeLabel');
+    const settlementBox = document.getElementById('settlementBox');
+    const settleMeta = document.getElementById('settleMeta');
+
+    const plMonth = document.getElementById('plMonth');
+    const plMonthMeta = document.getElementById('plMonthMeta');
+    const plYear = document.getElementById('plYear');
+    const plYearMeta = document.getElementById('plYearMeta');
+    const plLife = document.getElementById('plLife');
+    const plLifeMeta = document.getElementById('plLifeMeta');
+
+    const seg = document.querySelector('.seg');
+    const openAdd = document.getElementById('openAdd');
+    const sheet = document.getElementById('sheet');
+    const closeSheet = document.getElementById('closeSheet');
 
     const entryForm = document.getElementById('entryForm');
     const formMsg = document.getElementById('formMsg');
-    const filterRange = document.getElementById('filterRange');
+    const deleteEntryBtn = document.getElementById('deleteEntry');
+    const exportCsv = document.getElementById('exportCsv');
     const searchBox = document.getElementById('searchBox');
     const tableBody = document.getElementById('tableBody');
-    const last10El = document.getElementById('last10');
 
-    const modal = document.getElementById('modal');
-    const closeModalBtn = document.getElementById('closeModal');
-    const editForm = document.getElementById('editForm');
-
-    const fmt = (n)=> Number(n).toLocaleString(undefined,{style:'currency',currency:'CAD'});
+    // helpers
+    const fmt = (n)=> Number(n||0).toLocaleString(undefined,{style:'currency',currency:'CAD'});
     const todayISO = ()=> new Date().toISOString().slice(0,10);
+    const asDate = (val)=>{
+      if(!val) return new Date(0);
+      if(val.seconds && typeof val.seconds === 'number') return new Date(val.seconds*1000);
+      if(val instanceof Date) return new Date(val.getTime());
+      return new Date(val);
+    };
+
+    // week start Monday 00:00 local, inclusive
+    function getStartOfWeek(d=new Date()){
+      const t = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+      const day = t.getDay(); // 0 Sun .. 6 Sat
+      const diff = (day + 6) % 7; // 0 for Mon
+      t.setDate(t.getDate() - diff);
+      return t;
+    }
+    function getStartOfMonth(d=new Date()){ return new Date(d.getFullYear(), d.getMonth(), 1); }
+    function getStartOfYear(d=new Date()){ return new Date(d.getFullYear(), 0, 1); }
 
     let unsubscribe = null;
     let cache = [];
+    let currentRange = 'month'; // default "This month"
+    let editingId = null;
 
     function showApp(show){
       authScreen.classList.toggle('hidden', show);
       appScreen.classList.toggle('hidden', !show);
       logoutBtn.classList.toggle('hidden', !show);
-      exportCsv.classList.toggle('hidden', !show);
-      whoami.classList.toggle('hidden', !show);
     }
 
     onAuthStateChanged(auth, user => {
       if(user){
-        whoami.textContent = `Signed in as ${user.email}`;
         showApp(true);
         attachListener();
       } else {
@@ -269,23 +294,21 @@
       }
     });
 
+    // Auth handlers
     loginForm.addEventListener('submit', async (e)=>{
       e.preventDefault();
       authMsg.textContent = '';
       const email = document.getElementById('email').value.trim();
       const password = document.getElementById('password').value;
-      try{
-        await signInWithEmailAndPassword(auth, email, password);
-      } catch(err){ authMsg.textContent = err.message; }
+      try{ await signInWithEmailAndPassword(auth, email, password); }
+      catch(err){ authMsg.textContent = err.message; }
     });
-
     resetBtn.addEventListener('click', async ()=>{
       const email = document.getElementById('email').value.trim();
       if(!email){ authMsg.textContent = 'Enter your email first.'; return; }
       try{ await sendPasswordResetEmail(auth, email); authMsg.textContent = 'Reset link sent.'; }
       catch(err){ authMsg.textContent = err.message; }
     });
-
     logoutBtn.addEventListener('click', ()=> signOut(auth));
 
     // Firestore
@@ -293,58 +316,102 @@
 
     function attachListener(){
       if(unsubscribe) unsubscribe();
-      // Single orderBy to avoid composite index requirement
+      // single index-free ordering, we will sort client-side by date later
       const q = query(entriesCol, orderBy('createdAt','desc'));
       unsubscribe = onSnapshot(q, snap => {
         cache = snap.docs.map(d=> ({ id: d.id, ...d.data() }));
-        render();
-      }, err => {
-        console.error('Listener error:', err);
-      });
+        renderAll();
+      }, err => console.error(err));
     }
 
-    // Create entry
+    // Range switching (segmented control)
+    seg.addEventListener('click', (e)=>{
+      const btn = e.target.closest('button[data-range]');
+      if(!btn) return;
+      seg.querySelectorAll('button').forEach(b=>b.classList.remove('on'));
+      btn.classList.add('on');
+      currentRange = btn.dataset.range;
+      activeRangeLabel.textContent = rangeLabel(currentRange);
+      renderAll();
+    });
+
+    function rangeLabel(r){
+      return r==='week' ? 'This week' : r==='month' ? 'This month' : r==='year' ? 'This year' : 'All time';
+    }
+
+    // Sheet open/close
+    openAdd.addEventListener('click', ()=>{
+      editingId = null; // new entry
+      deleteEntryBtn.classList.add('hidden');
+      entryForm.reset();
+      document.getElementById('date').value = todayISO();
+      sheet.classList.add('on');
+    });
+    closeSheet.addEventListener('click', ()=> sheet.classList.remove('on'));
+
+    // Create/Update entry
     entryForm.addEventListener('submit', async (e)=>{
       e.preventDefault();
+      formMsg.textContent = '';
       const user = auth.currentUser;
       const rawDate = document.getElementById('date').value || todayISO();
-      const entry = {
+      const payload = {
         type: document.getElementById('type').value,
         by: document.getElementById('by').value,
         amount: parseFloat(document.getElementById('amount').value||'0'),
         party: document.getElementById('party').value.trim(),
         date: rawDate,
-        notes: document.getElementById('notes').value.trim(),
-        createdAt: serverTimestamp(),
         dateTS: new Date(rawDate),
-        createdByEmail: user?.email || 'unknown',
-        createdByUid: user?.uid || null
+        notes: document.getElementById('notes').value.trim()
       };
-      if(!(entry.amount>0)) { formMsg.textContent = 'Enter a valid amount.'; return; }
+      if(!(payload.amount>0)) { formMsg.textContent = 'Enter a valid amount.'; return; }
+
       try{
-        await addDoc(entriesCol, entry);
-        entryForm.reset();
-        document.getElementById('date').value = todayISO();
-        formMsg.textContent = 'Saved.';
-      } catch(err){ formMsg.textContent = err.message; }
+        if(editingId){
+          await updateDoc(doc(db,'entries',editingId), payload);
+        } else {
+          await addDoc(entriesCol, {
+            ...payload,
+            createdAt: serverTimestamp(),
+            createdByEmail: user?.email || 'unknown',
+            createdByUid: user?.uid || null
+          });
+        }
+        sheet.classList.remove('on');
+      }catch(err){ formMsg.textContent = err.message; }
     });
 
-    filterRange.addEventListener('change', render);
-    searchBox.addEventListener('input', render);
+    deleteEntryBtn.addEventListener('click', async ()=>{
+      if(!editingId) return;
+      if(!confirm('Delete this entry?')) return;
+      await deleteDoc(doc(db,'entries',editingId));
+      sheet.classList.remove('on');
+    });
 
-    function asDate(val){
-      if(!val) return new Date(0);
-      // Firestore Timestamp
-      if(val.seconds && typeof val.seconds === 'number'){ return new Date(val.seconds*1000); }
-      // JS Date
-      if(val instanceof Date){ return new Date(val.getTime()); }
-      // ISO string
-      return new Date(val);
-    }
+    // Search re-render
+    searchBox.addEventListener('input', renderTableAndSettlement);
 
-    function compute(entries){
+    // Export CSV (filtered)
+    exportCsv.addEventListener('click', ()=>{
+      const rows = [['id','type','by','amount','party','date','notes','createdByEmail','createdAt']];
+      const filtered = getFiltered(cache);
+      filtered.forEach(e=>{
+        const created = e.createdAt?.seconds ? new Date(e.createdAt.seconds*1000).toISOString() : '';
+        const notes = (e.notes||'').replaceAll('\n',' ').replaceAll('\r',' ');
+        rows.push([e.id,e.type,e.by,e.amount,e.party||'',e.date||'',notes,e.createdByEmail||'',created]);
+      });
+      const csv = rows.map(r=> r.map(x=>`"${String(x).replaceAll('"','""')}"`).join(',')).join('\n');
+      const blob = new Blob([csv],{type:'text/csv;charset=utf-8;'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `partner-ledger-${currentRange}.csv`; a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    // Compute helpers
+    function computeSettlement(list){
       let balance=0, expR=0, expA=0, saleR=0, saleA=0;
-      for(const e of entries){
+      for(const e of list){
         const half = e.amount/2;
         if(e.type==='expense'){
           if(e.by==='Ranveer'){ balance += half; expR += e.amount; }
@@ -356,57 +423,79 @@
       }
       return { balance, expR, expA, saleR, saleA };
     }
+    function computePL(list){
+      let expense=0, sales=0;
+      for(const e of list){
+        if(e.type==='expense') expense += e.amount;
+        else if(e.type==='sale') sales += e.amount;
+      }
+      return { sales, expense, pl: sales - expense };
+    }
 
-    function applyFilters(list){
-      const range = filterRange.value;
-      const search = searchBox.value.toLowerCase();
+    function getFiltered(list){
+      // sort by date desc first
+      const sorted = list.slice().sort((a,b)=> asDate(b.dateTS||b.date) - asDate(a.dateTS||a.date));
       const now = new Date();
-      const startOfWeek = new Date(now); startOfWeek.setDate(now.getDate() - now.getDay());
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      const startOfYear = new Date(now.getFullYear(), 0, 1);
+      const startWeek = getStartOfWeek(now);
+      const startMonth = getStartOfMonth(now);
+      const startYear = getStartOfYear(now);
+      const search = (searchBox.value||'').toLowerCase();
 
-      return list.filter(e=>{
+      return sorted.filter(e=>{
         const d = asDate(e.dateTS || e.date);
-        if(range==='week' && d < startOfWeek) return false;
-        if(range==='month' && d < startOfMonth) return false;
-        if(range==='year' && d < startOfYear) return false;
-        const blob = `${e.type} ${e.by} ${e.party||''} ${e.notes||''} ${e.createdByEmail||''}`.toLowerCase();
-        if(search && !blob.includes(search)) return false;
+        if(currentRange==='week' && d < startWeek) return false;
+        if(currentRange==='month' && d < startMonth) return false;
+        if(currentRange==='year' && d < startYear) return false;
+        if(search){
+          const blob = `${e.type} ${e.by} ${e.party||''} ${e.notes||''} ${e.createdByEmail||''}`.toLowerCase();
+          if(!blob.includes(search)) return false;
+        }
         return true;
       });
     }
 
-    function render(){
-      const sorted = cache.slice().sort((a,b)=> asDate(b.dateTS||b.date) - asDate(a.dateTS||a.date));
-      const entries = applyFilters(sorted);
+    function renderAll(){
+      // Settlement uses filtered list (matches active range label)
+      renderTableAndSettlement();
+      // Profit/Loss tiles use fixed periods regardless of current filter
+      const now = new Date();
+      const monthList = cache.filter(e=> asDate(e.dateTS||e.date) >= getStartOfMonth(now));
+      const yearList  = cache.filter(e=> asDate(e.dateTS||e.date) >= getStartOfYear(now));
+      const lifeList  = cache.slice();
 
-      const { balance, expR, expA, saleR, saleA } = compute(entries);
-      const sBox = document.getElementById('settlementBox');
-      if(balance > 0) sBox.textContent = `Aman owes Ranveer ${fmt(balance)}`;
-      else if(balance < 0) sBox.textContent = `Ranveer owes Aman ${fmt(Math.abs(balance))}`;
-      else sBox.textContent = 'You are square. 0.00 CAD';
-      document.getElementById('totals').innerHTML = `
+      const m = computePL(monthList);
+      const y = computePL(yearList);
+      const l = computePL(lifeList);
+
+      renderPL(plMonth, plMonthMeta, m);
+      renderPL(plYear,  plYearMeta,  y);
+      renderPL(plLife,  plLifeMeta,  l);
+    }
+
+    function renderPL(target, metaEl, obj){
+      target.textContent = `${obj.pl >= 0 ? '+' : ''}${fmt(obj.pl)}`;
+      target.classList.toggle('text-base-good', obj.pl >= 0);
+      target.classList.toggle('text-base-bad', obj.pl < 0);
+      target.style.color = obj.pl >= 0 ? '#34d399' : '#fb7185';
+      metaEl.textContent = `Sales ${fmt(obj.sales)} • Expenses ${fmt(obj.expense)}`;
+    }
+
+    function renderTableAndSettlement(){
+      const entries = getFiltered(cache);
+      const { balance, expR, expA, saleR, saleA } = computeSettlement(entries);
+
+      // Settlement box
+      if(balance > 0) settlementBox.textContent = `Aman owes Ranveer ${fmt(balance)}`;
+      else if(balance < 0) settlementBox.textContent = `Ranveer owes Aman ${fmt(Math.abs(balance))}`;
+      else settlementBox.textContent = 'You are square. 0.00 CAD';
+
+      settleMeta.innerHTML = `
         <div>Total expenses — Ranveer: <b>${fmt(expR)}</b>, Aman: <b>${fmt(expA)}</b></div>
         <div>Total sales — Ranveer: <b>${fmt(saleR)}</b>, Aman: <b>${fmt(saleA)}</b></div>
-        <div>Entries shown: <b>${entries.length}</b> of ${cache.length}</div>`;
+        <div>Entries shown: <b>${entries.length}</b> of ${cache.length}</div>
+      `;
 
-      const last10 = sorted.slice(0,10);
-      last10El.innerHTML = last10.map(e=>{
-        const d = asDate(e.dateTS || e.date);
-        const dateStr = isNaN(d) ? (e.date || '') : d.toISOString().slice(0,10);
-        return `<li class="chip rounded-xl px-3 py-2">
-          <span class="text-white/70">${dateStr}</span>
-          <span class="mx-2">•</span>
-          <span class="${e.type==='expense'?'text-red-300':'text-green-300'} font-semibold">${e.type}</span>
-          <span class="mx-1 text-white/70">by</span>
-          <span class="font-semibold">${e.by}</span>
-          <span class="mx-2">•</span>
-          <span>${fmt(e.amount)}</span>
-          <span class="mx-2">•</span>
-          <span class="text-white/70">added by ${e.createdByEmail||'unknown'}</span>
-        </li>`;
-      }).join('');
-
+      // Table
       tableBody.innerHTML = entries.map(e=>{
         const d = asDate(e.dateTS || e.date);
         const dateStr = isNaN(d) ? (e.date || '') : d.toISOString().slice(0,10);
@@ -423,75 +512,31 @@
           <td class="p-2">${e.notes||''}</td>
           <td class="p-2">${e.createdByEmail||''}</td>
           <td class="p-2 text-right">${owes}</td>
-          <td class="p-2 text-right"><button class="link" data-id="${e.id}" data-action="edit">Edit</button></td>
+          <td class="p-2 text-right"><button class="link tap-target" data-id="${e.id}" data-action="edit">Edit</button></td>
         </tr>`;
       }).join('');
     }
 
+    // Row edit -> open sheet prefilled
     tableBody.addEventListener('click', (ev)=>{
       const btn = ev.target.closest('button[data-action="edit"]');
       if(!btn) return;
       const id = btn.getAttribute('data-id');
       const e = cache.find(x=>x.id===id);
       if(!e) return;
-      document.getElementById('editId').value = e.id;
-      document.getElementById('editType').value = e.type;
-      document.getElementById('editBy').value = e.by;
-      document.getElementById('editAmount').value = e.amount;
-      document.getElementById('editParty').value = e.party||'';
+      editingId = id;
+      document.getElementById('type').value = e.type;
+      document.getElementById('by').value = e.by;
+      document.getElementById('amount').value = e.amount;
+      document.getElementById('party').value = e.party || '';
       const d = asDate(e.dateTS || e.date);
-      document.getElementById('editDate').value = isNaN(d) ? (e.date || '') : d.toISOString().slice(0,10);
-      document.getElementById('editNotes').value = e.notes||'';
-      modal.classList.remove('hidden');
-      modal.classList.add('flex');
+      document.getElementById('date').value = isNaN(d) ? (e.date || '') : d.toISOString().slice(0,10);
+      document.getElementById('notes').value = e.notes || '';
+      deleteEntryBtn.classList.remove('hidden');
+      sheet.classList.add('on');
     });
 
-    closeModalBtn.addEventListener('click', ()=>{ modal.classList.add('hidden'); modal.classList.remove('flex'); });
-
-    editForm.addEventListener('submit', async (ev)=>{
-      ev.preventDefault();
-      const id = document.getElementById('editId').value;
-      const ref = doc(db, 'entries', id);
-      const rawDate = document.getElementById('editDate').value || todayISO();
-      const payload = {
-        type: document.getElementById('editType').value,
-        by: document.getElementById('editBy').value,
-        amount: parseFloat(document.getElementById('editAmount').value||'0'),
-        party: document.getElementById('editParty').value.trim(),
-        date: rawDate,
-        dateTS: new Date(rawDate),
-        notes: document.getElementById('editNotes').value.trim()
-        // keep createdBy fields intact
-      };
-      await updateDoc(ref, payload);
-      modal.classList.add('hidden'); modal.classList.remove('flex');
-    });
-
-    document.getElementById('deleteEntry').addEventListener('click', async ()=>{
-      const id = document.getElementById('editId').value;
-      if(!confirm('Delete this entry?')) return;
-      await deleteDoc(doc(db, 'entries', id));
-      modal.classList.add('hidden'); modal.classList.remove('flex');
-    });
-
-    // Export CSV
-    exportCsv.addEventListener('click', async ()=>{
-      const snap = await getDocs(query(entriesCol, orderBy('createdAt','desc')));
-      const rows = [['id','type','by','amount','party','date','notes','createdByEmail','createdAt']];
-      snap.forEach(d=>{
-        const e = d.data();
-        const created = e.createdAt?.seconds ? new Date(e.createdAt.seconds*1000).toISOString() : '';
-        const notes = (e.notes||'').replaceAll('\n',' ').replaceAll('\r',' ');
-        rows.push([d.id,e.type,e.by,e.amount,e.party||'',e.date||'',notes,e.createdByEmail||'',created]);
-      });
-      const csv = rows.map(r=>r.map(x=>`"${String(x).replaceAll('"','""')}"`).join(',')).join('\n');
-      const blob = new Blob([csv],{type:'text/csv;charset=utf-8;'});
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = 'partner-ledger.csv'; a.click();
-      URL.revokeObjectURL(url);
-    });
-
+    // Init defaults
     document.getElementById('date').value = todayISO();
   </script>
 </body>
