@@ -40,24 +40,34 @@
   tr:last-child td{border-bottom:none}
   .hidden{display:none}
   /* iOS keyboard-safe modal sheet */
-  .sheet{position:fixed;inset:0;display:none;z-index:40;}
+  .sheet{position:fixed;inset:0;display:none;z-index:40;background:rgba(0,0,0,.5);}
   .sheet.on{display:flex}
   .sheet .panel{background:#18223c;border:1px solid #2a3357;border-radius:20px 20px 0 0;margin-top:auto;width:100%;
     max-height:92vh;overflow:auto;box-shadow:var(--shadow, 0 10px 50px rgba(0,0,0,.45));padding-bottom:env(safe-area-inset-bottom)}
   .tap-target{min-height:44px;min-width:44px}
+  .nav-tab{padding:.5rem .9rem;border-radius:999px;font-size:.85rem;border:1px solid transparent;}
+  .nav-tab.active{background:#2a3357;border-color:#3a4470;}
 </style>
 </head>
 <body class="min-h-screen">
   <!-- Minimal iOS-friendly Header -->
-  <header class="sticky top-0 z-30 backdrop-blur bg-black/20 border-b border-[#2a3357]">
+  <header class="sticky top-0 z-40 backdrop-blur bg-black/40 border-b border-[#2a3357]">
     <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
       <div class="flex items-center gap-3">
         <div class="h-9 w-9 rounded-xl bg-[#6c85ff]/20 grid place-items-center">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 7h16M4 12h10M4 17h16" stroke="#9db0ff" stroke-width="2" stroke-linecap="round"/></svg>
         </div>
-        <div class="font-bold">The Print Room — Ledger</div>
+        <div class="font-bold text-sm sm:text-base">The Print Room — Ledger</div>
       </div>
-      <button id="logoutBtn" class="btn ghost tap-target hidden">Logout</button>
+      <button id="logoutBtn" class="btn ghost tap-target hidden text-sm px-3 py-2">Logout</button>
+    </div>
+    <!-- Top nav tabs -->
+    <div id="topNav" class="max-w-7xl mx-auto px-4 pb-3 flex gap-2 overflow-x-auto text-xs sm:text-sm">
+      <button class="nav-tab active" data-page="dashboard">Dashboard</button>
+      <button class="nav-tab" data-page="all">All entries</button>
+      <button class="nav-tab" data-page="sales">Sales</button>
+      <button class="nav-tab" data-page="expenses">Expenses</button>
+      <button class="nav-tab" data-page="pending">Pending payments</button>
     </div>
   </header>
 
@@ -76,123 +86,124 @@
       </div>
       <button class="btn tap-target" type="submit">Sign in</button>
       <button id="resetBtn" class="btn ghost tap-target" type="button">Send password reset</button>
-      <div id="authMsg" class="text-sm text-white/70"></div>
+      <div id="authMsg" class="text-sm text-white/70 mt-1"></div>
     </form>
   </section>
 
   <!-- App Screen -->
   <main id="appScreen" class="max-w-7xl mx-auto px-4 py-6 grid gap-6 hidden">
-    <!-- Settlement + P/L summary -->
-    <section class="grid lg:grid-cols-3 gap-6">
-      <!-- Net settlement -->
-      <div class="card p-5 lg:col-span-3">
-        <div class="flex items-center justify-between gap-3 flex-wrap">
-          <div>
-            <div class="text-sm text-white/60">Settlement • <span id="activeRangeLabel">This month</span></div>
-            <div id="settlementBox" class="mt-1 text-2xl font-extrabold"></div>
-            <div id="settleMeta" class="text-xs text-white/60 mt-1"></div>
-          </div>
-          <div class="seg flex">
-            <button class="tap-target" data-range="week">Week</button>
-            <button class="tap-target on" data-range="month">Month</button>
-            <button class="tap-target" data-range="year">Year</button>
-            <button class="tap-target" data-range="life">All</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- P/L tiles -->
-      <div class="card p-5">
-        <div class="text-sm text-white/60">Profit/Loss • This month</div>
-        <div id="plMonth" class="mt-1 text-2xl font-extrabold"></div>
-        <div id="plMonthMeta" class="text-xs text-white/60 mt-1"></div>
-      </div>
-      <div class="card p-5">
-        <div class="text-sm text-white/60">Profit/Loss • This year</div>
-        <div id="plYear" class="mt-1 text-2xl font-extrabold"></div>
-        <div id="plYearMeta" class="text-xs text-white/60 mt-1"></div>
-      </div>
-      <div class="card p-5">
-        <div class="text-sm text-white/60">Profit/Loss • Lifetime</div>
-        <div id="plLife" class="mt-1 text-2xl font-extrabold"></div>
-        <div id="plLifeMeta" class="text-xs text-white/60 mt-1"></div>
-      </div>
-
-      <!-- Pending payments summary -->
-      <div class="card p-5 lg:col-span-3">
-        <div class="flex items-center justify-between gap-3 flex-wrap">
-          <div>
-            <div class="text-sm text-white/60">Pending customer payments</div>
-            <div id="pendingTotal" class="mt-1 text-xl font-bold"></div>
-            <div id="pendingMeta" class="text-xs text-white/60 mt-1"></div>
+    <!-- DASHBOARD PAGE -->
+    <section id="page-dashboard" class="grid gap-6">
+      <!-- Settlement + P/L summary -->
+      <section class="grid lg:grid-cols-3 gap-6">
+        <!-- Net settlement -->
+        <div class="card p-5 lg:col-span-3">
+          <div class="flex items-center justify-between gap-3 flex-wrap">
+            <div>
+              <div class="text-sm text-white/60">Settlement • <span id="activeRangeLabel">This month</span></div>
+              <div id="settlementBox" class="mt-1 text-2xl font-extrabold"></div>
+              <div id="settleMeta" class="text-xs text-white/60 mt-1"></div>
+            </div>
+            <div class="seg flex text-xs">
+              <button class="tap-target" data-range="week">Week</button>
+              <button class="tap-target on" data-range="month">Month</button>
+              <button class="tap-target" data-range="year">Year</button>
+              <button class="tap-target" data-range="life">All</button>
+            </div>
           </div>
         </div>
-      </div>
 
-      <!-- Add entry button -->
-      <div class="lg:col-span-3 flex items-center gap-3">
-        <button id="openAdd" class="btn tap-target">Add entry</button>
-      </div>
+        <!-- P/L tiles -->
+        <div class="card p-5">
+          <div class="text-sm text-white/60">Profit/Loss • This month</div>
+          <div id="plMonth" class="mt-1 text-2xl font-extrabold"></div>
+          <div id="plMonthMeta" class="text-xs text-white/60 mt-1"></div>
+        </div>
+        <div class="card p-5">
+          <div class="text-sm text-white/60">Profit/Loss • This year</div>
+          <div id="plYear" class="mt-1 text-2xl font-extrabold"></div>
+          <div id="plYearMeta" class="text-xs text-white/60 mt-1"></div>
+        </div>
+        <div class="card p-5">
+          <div class="text-sm text-white/60">Profit/Loss • Lifetime</div>
+          <div id="plLife" class="mt-1 text-2xl font-extrabold"></div>
+          <div id="plLifeMeta" class="text-xs text-white/60 mt-1"></div>
+        </div>
+
+        <!-- Pending payments summary -->
+        <div class="card p-5 lg:col-span-3">
+          <div class="flex items-center justify-between gap-3 flex-wrap">
+            <div>
+              <div class="text-sm text-white/60">Pending customer payments</div>
+              <div id="pendingTotal" class="mt-1 text-xl font-bold"></div>
+              <div id="pendingMeta" class="text-xs text-white/60 mt-1"></div>
+            </div>
+            <button id="openAdd" class="btn tap-target text-sm">Add entry</button>
+          </div>
+        </div>
+      </section>
     </section>
 
-    <!-- Entries List -->
-    <section class="card p-5">
-      <!-- Header row -->
-      <div class="flex flex-wrap items-center gap-2 mb-3">
-        <h2 class="text-lg font-bold mr-auto">Entries</h2>
-        <button id="exportCsv" class="btn ghost tap-target text-sm">Export CSV (filtered)</button>
-      </div>
-
-      <!-- Search row -->
-      <div class="mb-3">
-        <input id="searchBox" class="input w-full" placeholder="Search type, party, notes…" />
-      </div>
-
-      <!-- Filter chips -->
-      <div class="flex flex-wrap gap-3 text-xs">
-        <div class="flex items-center gap-2 flex-wrap">
-          <span class="text-white/50">Type:</span>
-          <button class="chip tap-target filter-type on" data-filter-type="all">All</button>
-          <button class="chip tap-target filter-type" data-filter-type="expense">Expenses</button>
-          <button class="chip tap-target filter-type" data-filter-type="sale">Sales</button>
-          <button class="chip tap-target filter-type" data-filter-type="settlement">Settlements</button>
+    <!-- ENTRIES PAGE (reused for All / Sales / Expenses / Pending) -->
+    <section id="page-entries" class="grid gap-4 hidden">
+      <section class="card p-5">
+        <!-- Header row -->
+        <div class="flex flex-wrap items-center gap-2 mb-3">
+          <h2 class="text-lg font-bold mr-auto" id="entriesTitle">Entries</h2>
+          <button id="exportCsv" class="btn ghost tap-target text-xs sm:text-sm">Export CSV (filtered)</button>
         </div>
-        <div class="flex items-center gap-2 flex-wrap">
-          <span class="text-white/50">By:</span>
-          <button class="chip tap-target filter-by on" data-filter-by="both">Both</button>
-          <button class="chip tap-target filter-by" data-filter-by="Ranveer">Ranveer</button>
-          <button class="chip tap-target filter-by" data-filter-by="Aman">Aman</button>
-        </div>
-        <div class="flex items-center gap-2 flex-wrap">
-          <span class="text-white/50">Status:</span>
-          <button class="chip tap-target filter-status on" data-filter-status="all">All</button>
-          <button class="chip tap-target filter-status" data-filter-status="paid">Paid</button>
-          <button class="chip tap-target filter-status" data-filter-status="pending">Pending</button>
-        </div>
-      </div>
 
-      <!-- Table -->
-      <div class="overflow-auto mt-4">
-        <table class="w-full text-sm">
-          <thead class="text-white/60">
-            <tr>
-              <th class="text-left p-2">Date</th>
-              <th class="text-left p-2">Type</th>
-              <th class="text-left p-2">By</th>
-              <th class="text-right p-2">Amount</th>
-              <th class="text-left p-2">Party</th>
-              <th class="text-left p-2">Notes</th>
-              <th class="text-left p-2">Added by</th>
-              <th class="text-right p-2">Owes Half</th>
-              <th class="text-right p-2">Actions</th>
-            </tr>
-          </thead>
-          <tbody id="tableBody"></tbody>
-        </table>
-      </div>
-      <div class="mt-3 text-xs text-white/60">
-        Rule: Expense by X means the other owes X half. Sale by X means X owes the other half. Settlement payments adjust only the partner balance.
-      </div>
+        <!-- Search row -->
+        <div class="mb-3">
+          <input id="searchBox" class="input w-full" placeholder="Search type, party, notes…" />
+        </div>
+
+        <!-- Filter chips -->
+        <div class="flex flex-wrap gap-3 text-xs">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="text-white/50">Type:</span>
+            <button class="chip tap-target filter-type on" data-filter-type="all">All</button>
+            <button class="chip tap-target filter-type" data-filter-type="expense">Expenses</button>
+            <button class="chip tap-target filter-type" data-filter-type="sale">Sales</button>
+            <button class="chip tap-target filter-type" data-filter-type="settlement">Settlements</button>
+          </div>
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="text-white/50">By:</span>
+            <button class="chip tap-target filter-by on" data-filter-by="both">Both</button>
+            <button class="chip tap-target filter-by" data-filter-by="Ranveer">Ranveer</button>
+            <button class="chip tap-target filter-by" data-filter-by="Aman">Aman</button>
+          </div>
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="text-white/50">Status:</span>
+            <button class="chip tap-target filter-status on" data-filter-status="all">All</button>
+            <button class="chip tap-target filter-status" data-filter-status="paid">Paid</button>
+            <button class="chip tap-target filter-status" data-filter-status="pending">Pending</button>
+          </div>
+        </div>
+
+        <!-- Table -->
+        <div class="overflow-auto mt-4">
+          <table class="w-full text-xs sm:text-sm">
+            <thead class="text-white/60">
+              <tr>
+                <th class="text-left p-2">Date</th>
+                <th class="text-left p-2">Type</th>
+                <th class="text-left p-2">By</th>
+                <th class="text-right p-2">Amount</th>
+                <th class="text-left p-2">Party</th>
+                <th class="text-left p-2">Notes</th>
+                <th class="text-left p-2">Added by</th>
+                <th class="text-right p-2">Owes Half</th>
+                <th class="text-right p-2">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+          </table>
+        </div>
+        <div class="mt-3 text-xs text-white/60">
+          Rule: Expense by X means the other owes X half. Sale by X means X owes the other half. Settlement payments adjust only the partner balance.
+        </div>
+      </section>
     </section>
   </main>
 
@@ -206,7 +217,7 @@
     <div class="panel">
       <div class="p-4 border-b border-[#2a3357] flex items-center justify-between sticky top-0 bg-[#18223c]">
         <div class="font-bold">Entry</div>
-        <button id="closeSheet" class="btn ghost tap-target">Close</button>
+        <button id="closeSheet" class="btn ghost tap-target text-sm px-3 py-2">Close</button>
       </div>
       <form id="entryForm" class="p-4 grid gap-3">
         <input type="hidden" id="editId" />
@@ -233,7 +244,7 @@
         <!-- Party/Supplier -->
         <div class="grid gap-1" id="partyGroup">
           <label class="text-xs text-white/70" id="partyLabel">Sold to / Bought from</label>
-          <input id="party" class="input" placeholder="Client or supplier name" />
+          <input id="party" class="input" placeholder="Client or supplier name" list="supplierList" />
           <datalist id="supplierList"></datalist>
         </div>
 
@@ -278,19 +289,17 @@
           <button class="btn tap-target" type="submit">Save</button>
           <button id="deleteEntry" type="button" class="btn ghost tap-target hidden">Delete</button>
         </div>
-        <div id="formMsg" class="text-sm text-white/70"></div>
+        <div id="formMsg" class="text-sm text-white/70 mt-1"></div>
       </form>
     </div>
   </div>
 
   <!-- Firebase + App Logic -->
   <script type="module">
-    // Firebase v9+ modular from CDN
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
     import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, sendPasswordResetEmail, signOut } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
     import { getFirestore, collection, addDoc, serverTimestamp, onSnapshot, query, orderBy, doc, updateDoc, deleteDoc, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
 
-    // --- Config (yours) ---
     const firebaseConfig = {
       apiKey: "AIzaSyBALPTzgm1uiVCW4bwMJC2TPrWSsF-cCwQ",
       authDomain: "theprintroomlondon-6f586.firebaseapp.com",
@@ -352,7 +361,15 @@
     const jobIdInput = document.getElementById('jobId');
     const entryCategorySelect = document.getElementById('entryCategory');
 
-    // helpers
+    const pageDashboard = document.getElementById('page-dashboard');
+    const pageEntries = document.getElementById('page-entries');
+    const entriesTitle = document.getElementById('entriesTitle');
+    const navTabs = document.querySelectorAll('.nav-tab');
+
+    const filterTypeButtons = document.querySelectorAll('.filter-type');
+    const filterByButtons = document.querySelectorAll('.filter-by');
+    const filterStatusButtons = document.querySelectorAll('.filter-status');
+
     const fmt = (n)=> Number(n||0).toLocaleString(undefined,{style:'currency',currency:'CAD'});
     const todayISO = ()=> new Date().toISOString().slice(0,10);
     const asDate = (val)=>{
@@ -362,11 +379,10 @@
       return new Date(val);
     };
 
-    // week start Monday 00:00 local, inclusive
     function getStartOfWeek(d=new Date()){
       const t = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-      const day = t.getDay(); // 0 Sun .. 6 Sat
-      const diff = (day + 6) % 7; // 0 for Mon
+      const day = t.getDay();
+      const diff = (day + 6) % 7;
       t.setDate(t.getDate() - diff);
       return t;
     }
@@ -375,13 +391,13 @@
 
     let unsubscribe = null;
     let cache = [];
-    let currentRange = 'month'; // default "This month"
+    let currentRange = 'month';
     let editingId = null;
 
-    // extra filters
     let filterType = 'all';   // all | expense | sale | settlement
     let filterBy = 'both';    // both | Ranveer | Aman
     let filterStatus = 'all'; // all | paid | pending
+    let currentPage = 'dashboard';
 
     function showApp(show){
       authScreen.classList.toggle('hidden', show);
@@ -428,12 +444,10 @@
 
     logoutBtn.addEventListener('click', ()=> signOut(auth));
 
-    // Firestore
     const entriesCol = collection(db, 'entries');
 
     function attachListener(){
       if(unsubscribe) unsubscribe();
-      // single index-free ordering, we will sort client-side by date later
       const q = query(entriesCol, orderBy('createdAt','desc'));
       unsubscribe = onSnapshot(q, snap => {
         cache = snap.docs.map(d=> ({ id: d.id, ...d.data() }));
@@ -441,7 +455,7 @@
       }, err => console.error(err));
     }
 
-    // Range switching (segmented control)
+    // Range switching
     seg.addEventListener('click', (e)=>{
       const btn = e.target.closest('button[data-range]');
       if(!btn) return;
@@ -456,7 +470,42 @@
       return r==='week' ? 'This week' : r==='month' ? 'This month' : r==='year' ? 'This year' : 'All time';
     }
 
-    // Open sheet for new entry
+    // Pages nav
+    navTabs.forEach(tab=>{
+      tab.addEventListener('click', ()=>{
+        navTabs.forEach(t=>t.classList.remove('active'));
+        tab.classList.add('active');
+        currentPage = tab.dataset.page;
+        if(currentPage === 'dashboard'){
+          pageDashboard.classList.remove('hidden');
+          pageEntries.classList.add('hidden');
+        } else {
+          pageDashboard.classList.add('hidden');
+          pageEntries.classList.remove('hidden');
+        }
+
+        // Set filters based on page
+        if(currentPage === 'all'){
+          setFilterType('all');
+          setFilterStatus('all');
+          entriesTitle.textContent = 'All entries';
+        } else if(currentPage === 'sales'){
+          setFilterType('sale');
+          setFilterStatus('all');
+          entriesTitle.textContent = 'Sales';
+        } else if(currentPage === 'expenses'){
+          setFilterType('expense');
+          setFilterStatus('all');
+          entriesTitle.textContent = 'Expenses';
+        } else if(currentPage === 'pending'){
+          setFilterType('sale');
+          setFilterStatus('pending');
+          entriesTitle.textContent = 'Pending payments';
+        }
+        renderTableAndSettlement();
+      });
+    });
+
     function openNewEntrySheet(){
       editingId = null;
       deleteEntryBtn.classList.add('hidden');
@@ -469,12 +518,10 @@
       sheet.classList.add('on');
     }
 
-    // Sheet open/close
     openAdd.addEventListener('click', openNewEntrySheet);
     openAddFab.addEventListener('click', openNewEntrySheet);
     closeSheet.addEventListener('click', ()=> sheet.classList.remove('on'));
 
-    // Type-dependent form behavior
     function updateFormForType(t){
       if(t === 'expense'){
         partyGroup.classList.remove('hidden');
@@ -496,7 +543,6 @@
       updateFormForType(e.target.value);
     });
 
-    // Create/Update entry
     entryForm.addEventListener('submit', async (e)=>{
       e.preventDefault();
       formMsg.textContent = '';
@@ -513,10 +559,13 @@
         party: typeVal === 'settlement' ? '' : (partyInput.value.trim() || ''),
         date: rawDate,
         dateTS: new Date(rawDate),
-        notes: document.getElementById('notes').value.trim(),
-        jobId: jobIdInput.value.trim() || undefined,
-        entryCategory: entryCategorySelect.value || undefined
+        notes: document.getElementById('notes').value.trim()
       };
+
+      const job = jobIdInput.value.trim();
+      const cat = entryCategorySelect.value;
+      if(job) payloadBase.jobId = job;
+      if(cat) payloadBase.entryCategory = cat;
 
       if(typeVal === 'sale'){
         payloadBase.status = statusSelect.value || 'paid';
@@ -524,22 +573,24 @@
 
       try{
         if(editingId){
-          await updateDoc(doc(db,'entries',editingId), {
+          const updatePayload = {
             ...payloadBase,
             updatedAt: serverTimestamp(),
             updatedByEmail: user?.email || 'unknown'
-          });
+          };
+          await updateDoc(doc(db,'entries',editingId), updatePayload);
         } else {
-          await addDoc(entriesCol, {
+          const createPayload = {
             ...payloadBase,
             createdAt: serverTimestamp(),
             createdByEmail: user?.email || 'unknown',
             createdByUid: user?.uid || null
-          });
+          };
+          await addDoc(entriesCol, createPayload);
         }
         sheet.classList.remove('on');
       }catch(err){
-        formMsg.textContent = 'Error saving entry.';
+        formMsg.textContent = 'Error: ' + (err.message || 'could not save entry');
         console.error(err);
       }
     });
@@ -555,30 +606,42 @@
       }
     });
 
-    // Search re-render
     searchBox.addEventListener('input', renderTableAndSettlement);
 
-    // Filter chips
-    function setupFilterGroup(selector, typeKey){
-      const buttons = document.querySelectorAll(selector);
-      buttons.forEach(btn=>{
-        btn.addEventListener('click', ()=>{
-          buttons.forEach(b=>b.classList.remove('on'));
-          btn.classList.add('on');
-          const val = btn.getAttribute(typeKey);
-          if(typeKey === 'data-filter-type') filterType = val;
-          if(typeKey === 'data-filter-by') filterBy = val;
-          if(typeKey === 'data-filter-status') filterStatus = val;
-          renderTableAndSettlement();
-        });
+    function setFilterType(val){
+      filterType = val;
+      filterTypeButtons.forEach(b=>{
+        b.classList.toggle('on', b.dataset.filterType === val || (val==='all' && b.dataset.filterType==='all'));
+      });
+    }
+    function setFilterStatus(val){
+      filterStatus = val;
+      filterStatusButtons.forEach(b=>{
+        b.classList.toggle('on', b.dataset.filterStatus === val || (val==='all' && b.dataset.filterStatus==='all'));
       });
     }
 
-    setupFilterGroup('.filter-type','data-filter-type');
-    setupFilterGroup('.filter-by','data-filter-by');
-    setupFilterGroup('.filter-status','data-filter-status');
+    filterTypeButtons.forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        setFilterType(btn.dataset.filterType);
+        renderTableAndSettlement();
+      });
+    });
+    filterByButtons.forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        filterByButtons.forEach(b=>b.classList.remove('on'));
+        btn.classList.add('on');
+        filterBy = btn.dataset.filterBy;
+        renderTableAndSettlement();
+      });
+    });
+    filterStatusButtons.forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        setFilterStatus(btn.dataset.filterStatus);
+        renderTableAndSettlement();
+      });
+    });
 
-    // Export CSV (filtered)
     exportCsv.addEventListener('click', ()=>{
       const rows = [['id','type','by','amount','party','date','notes','status','jobId','entryCategory','createdByEmail','createdAt','updatedByEmail','updatedAt']];
       const filtered = getFiltered(cache);
@@ -612,7 +675,6 @@
       URL.revokeObjectURL(url);
     });
 
-    // Compute helpers
     function computeSettlement(list){
       let balance=0, expR=0, expA=0, saleR=0, saleA=0;
       for(const e of list){
@@ -625,7 +687,6 @@
           if(e.by==='Ranveer'){ balance -= half; saleR += amt; }
           else if(e.by==='Aman'){ balance += half; saleA += amt; }
         } else if(e.type==='settlement'){
-          // Partner settlement payment
           if(e.by==='Ranveer'){ balance -= amt; }
           else if(e.by==='Aman'){ balance += amt; }
         }
@@ -639,13 +700,11 @@
         const amt = Number(e.amount || 0);
         if(e.type==='expense') expense += amt;
         else if(e.type==='sale') sales += amt;
-        // settlements ignored for P/L
       }
       return { sales, expense, pl: sales - expense };
     }
 
     function getFiltered(list){
-      // sort by date desc first
       const sorted = list.slice().sort((a,b)=> asDate(b.dateTS||b.date) - asDate(a.dateTS||a.date));
       const now = new Date();
       const startWeek = getStartOfWeek(now);
@@ -690,10 +749,8 @@
     }
 
     function renderAll(){
-      // Settlement & table use filtered list (matches active range label & filters)
       renderTableAndSettlement();
 
-      // Profit/Loss tiles use fixed periods regardless of current filter
       const now = new Date();
       const monthList = cache.filter(e=> asDate(e.dateTS||e.date) >= getStartOfMonth(now));
       const yearList  = cache.filter(e=> asDate(e.dateTS||e.date) >= getStartOfYear(now));
@@ -707,7 +764,6 @@
       renderPL(plYear,  plYearMeta,  y);
       renderPL(plLife,  plLifeMeta,  l);
 
-      // Pending payments (all-time, regardless of filters)
       const pendingSales = cache.filter(e=> e.type==='sale' && (e.status || 'paid') === 'pending');
       const pendingAmount = pendingSales.reduce((sum,e)=> sum + (Number(e.amount||0)), 0);
       pendingTotal.textContent = fmt(pendingAmount);
@@ -715,7 +771,6 @@
         ? `${pendingSales.length} pending sale${pendingSales.length>1?'s':''}`
         : 'No pending payments.';
 
-      // Suppliers list
       refreshSuppliers();
     }
 
@@ -729,7 +784,6 @@
       const entries = getFiltered(cache);
       const { balance, expR, expA, saleR, saleA } = computeSettlement(entries);
 
-      // Settlement box
       if(balance > 0){
         settlementBox.textContent = `Aman owes Ranveer ${fmt(balance)}`;
         settlementBox.style.color = '#34d399';
@@ -747,7 +801,6 @@
         <div>Entries shown: <b>${entries.length}</b> of ${cache.length}</div>
       `;
 
-      // Table
       tableBody.innerHTML = entries.map(e=>{
         const d = asDate(e.dateTS || e.date);
         const dateStr = isNaN(d) ? (e.date || '') : d.toISOString().slice(0,10);
@@ -768,11 +821,6 @@
         }
 
         const status = e.type === 'sale' ? (e.status || 'paid') : null;
-        let typeLabel = e.type || '';
-        if(e.type === 'expense') typeLabel = 'expense';
-        if(e.type === 'sale') typeLabel = 'sale';
-        if(e.type === 'settlement') typeLabel = 'settlement';
-
         const typeColorClass = e.type==='expense'
           ? 'text-red-300'
           : e.type==='sale'
@@ -788,7 +836,7 @@
 
         return `<tr>
           <td class="p-2">${dateStr}</td>
-          <td class="p-2 ${typeColorClass}">${typeLabel}${status ? statusBadge : ''}</td>
+          <td class="p-2 ${typeColorClass}">${e.type || ''}${status ? statusBadge : ''}</td>
           <td class="p-2">${e.by || ''}</td>
           <td class="p-2 text-right">${fmt(amt)}</td>
           <td class="p-2">${e.party || ''}</td>
@@ -802,7 +850,6 @@
       }).join('');
     }
 
-    // Row edit -> open sheet prefilled
     tableBody.addEventListener('click', (ev)=>{
       const btn = ev.target.closest('button[data-action="edit"]');
       if(!btn) return;
@@ -820,7 +867,6 @@
       document.getElementById('notes').value = e.notes || '';
       jobIdInput.value = e.jobId || '';
       entryCategorySelect.value = e.entryCategory || '';
-
       if(e.type === 'sale'){
         statusSelect.value = e.status || 'paid';
       } else {
@@ -833,7 +879,6 @@
       sheet.classList.add('on');
     });
 
-    // Init defaults
     document.getElementById('date').value = todayISO();
     statusSelect.value = 'paid';
     updateFormForType('expense');
