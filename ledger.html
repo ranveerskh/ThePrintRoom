@@ -27,7 +27,8 @@
     padding-top: env(safe-area-inset-top); padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right);
   }
   .card{background:#18223c;border:1px solid #2a3357;border-radius:16px}
-  .chip{border:1px solid #2a3357}
+  .chip{border:1px solid #2a3357;border-radius:999px;padding:.25rem .7rem;font-size:.75rem}
+  .chip.on{background:#2a3357;}
   .input{background:transparent;border:1px solid #2a3357;border-radius:12px;padding:.75rem;font-size:16px}
   .btn{background:#6c85ff;color:#000;font-weight:600;border-radius:12px;padding:.75rem 1rem}
   .btn.ghost{background:transparent;border:1px solid #2a3357;color:#eef1ff}
@@ -39,7 +40,7 @@
   tr:last-child td{border-bottom:none}
   .hidden{display:none}
   /* iOS keyboard-safe modal sheet */
-  .sheet{position:fixed;inset:0;display:none}
+  .sheet{position:fixed;inset:0;display:none;z-index:40;}
   .sheet.on{display:flex}
   .sheet .panel{background:#18223c;border:1px solid #2a3357;border-radius:20px 20px 0 0;margin-top:auto;width:100%;
     max-height:92vh;overflow:auto;box-shadow:var(--shadow, 0 10px 50px rgba(0,0,0,.45));padding-bottom:env(safe-area-inset-bottom)}
@@ -83,6 +84,7 @@
   <main id="appScreen" class="max-w-7xl mx-auto px-4 py-6 grid gap-6 hidden">
     <!-- Settlement + P/L summary -->
     <section class="grid lg:grid-cols-3 gap-6">
+      <!-- Net settlement -->
       <div class="card p-5 lg:col-span-3">
         <div class="flex items-center justify-between gap-3 flex-wrap">
           <div>
@@ -99,6 +101,7 @@
         </div>
       </div>
 
+      <!-- P/L tiles -->
       <div class="card p-5">
         <div class="text-sm text-white/60">Profit/Loss • This month</div>
         <div id="plMonth" class="mt-1 text-2xl font-extrabold"></div>
@@ -115,6 +118,18 @@
         <div id="plLifeMeta" class="text-xs text-white/60 mt-1"></div>
       </div>
 
+      <!-- Pending payments summary -->
+      <div class="card p-5 lg:col-span-3">
+        <div class="flex items-center justify-between gap-3 flex-wrap">
+          <div>
+            <div class="text-sm text-white/60">Pending customer payments</div>
+            <div id="pendingTotal" class="mt-1 text-xl font-bold"></div>
+            <div id="pendingMeta" class="text-xs text-white/60 mt-1"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Add entry button -->
       <div class="lg:col-span-3 flex items-center gap-3">
         <button id="openAdd" class="btn tap-target">Add entry</button>
       </div>
@@ -122,11 +137,41 @@
 
     <!-- Entries List -->
     <section class="card p-5">
-      <div class="flex flex-wrap items-center gap-2">
+      <!-- Header row -->
+      <div class="flex flex-wrap items-center gap-2 mb-3">
         <h2 class="text-lg font-bold mr-auto">Entries</h2>
-        <input id="searchBox" class="input" placeholder="Search party, notes…" />
-        <button id="exportCsv" class="btn ghost tap-target">Export CSV (filtered)</button>
+        <button id="exportCsv" class="btn ghost tap-target text-sm">Export CSV (filtered)</button>
       </div>
+
+      <!-- Search row -->
+      <div class="mb-3">
+        <input id="searchBox" class="input w-full" placeholder="Search type, party, notes…" />
+      </div>
+
+      <!-- Filter chips -->
+      <div class="flex flex-wrap gap-3 text-xs">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="text-white/50">Type:</span>
+          <button class="chip tap-target filter-type on" data-filter-type="all">All</button>
+          <button class="chip tap-target filter-type" data-filter-type="expense">Expenses</button>
+          <button class="chip tap-target filter-type" data-filter-type="sale">Sales</button>
+          <button class="chip tap-target filter-type" data-filter-type="settlement">Settlements</button>
+        </div>
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="text-white/50">By:</span>
+          <button class="chip tap-target filter-by on" data-filter-by="both">Both</button>
+          <button class="chip tap-target filter-by" data-filter-by="Ranveer">Ranveer</button>
+          <button class="chip tap-target filter-by" data-filter-by="Aman">Aman</button>
+        </div>
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="text-white/50">Status:</span>
+          <button class="chip tap-target filter-status on" data-filter-status="all">All</button>
+          <button class="chip tap-target filter-status" data-filter-status="paid">Paid</button>
+          <button class="chip tap-target filter-status" data-filter-status="pending">Pending</button>
+        </div>
+      </div>
+
+      <!-- Table -->
       <div class="overflow-auto mt-4">
         <table class="w-full text-sm">
           <thead class="text-white/60">
@@ -145,9 +190,16 @@
           <tbody id="tableBody"></tbody>
         </table>
       </div>
-      <div class="mt-3 text-xs text-white/60">Rule: Expense by X means the other owes X half. Sale by X means X owes the other half.</div>
+      <div class="mt-3 text-xs text-white/60">
+        Rule: Expense by X means the other owes X half. Sale by X means X owes the other half. Settlement payments adjust only the partner balance.
+      </div>
     </section>
   </main>
+
+  <!-- Floating Add button (mobile) -->
+  <button id="openAddFab" class="fixed bottom-5 right-5 md:hidden btn rounded-full shadow-soft tap-target hidden z-40">
+    +
+  </button>
 
   <!-- Add/Edit Sheet -->
   <div id="sheet" class="sheet items-stretch justify-center">
@@ -163,6 +215,7 @@
           <select id="type" class="input" required>
             <option value="expense">Expense / Purchase</option>
             <option value="sale">Sale / Payment received</option>
+            <option value="settlement">Partner settlement payment</option>
           </select>
         </div>
         <div class="grid gap-1">
@@ -176,14 +229,47 @@
           <label class="text-xs text-white/70">Amount (CAD)</label>
           <input id="amount" type="number" step="0.01" min="0" class="input" placeholder="100" required />
         </div>
-        <div class="grid gap-1">
-          <label class="text-xs text-white/70">Sold to / Bought from</label>
+
+        <!-- Party/Supplier -->
+        <div class="grid gap-1" id="partyGroup">
+          <label class="text-xs text-white/70" id="partyLabel">Sold to / Bought from</label>
           <input id="party" class="input" placeholder="Client or supplier name" />
+          <datalist id="supplierList"></datalist>
         </div>
+
+        <!-- Sale status -->
+        <div class="grid gap-1" id="statusGroup">
+          <label class="text-xs text-white/70">Payment status (for sales)</label>
+          <select id="status" class="input">
+            <option value="paid">Paid</option>
+            <option value="pending">Pending</option>
+          </select>
+        </div>
+
         <div class="grid gap-1">
           <label class="text-xs text-white/70">Date</label>
           <input id="date" type="date" class="input" />
         </div>
+
+        <!-- Job / Project -->
+        <div class="grid gap-1">
+          <label class="text-xs text-white/70">Job / Project ID (optional)</label>
+          <input id="jobId" class="input" placeholder="e.g. Backdrop-2025-01-15" />
+        </div>
+
+        <!-- Category -->
+        <div class="grid gap-1">
+          <label class="text-xs text-white/70">Category (optional)</label>
+          <select id="entryCategory" class="input">
+            <option value="">Uncategorized</option>
+            <option value="materials">Materials</option>
+            <option value="tools">Tools</option>
+            <option value="printing">Printing</option>
+            <option value="decor">Decor</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+
         <div class="grid gap-1">
           <label class="text-xs text-white/70">Notes</label>
           <textarea id="notes" class="input" rows="3" placeholder="Paper stock, job id, etc."></textarea>
@@ -202,7 +288,7 @@
     // Firebase v9+ modular from CDN
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
     import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, sendPasswordResetEmail, signOut } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
-    import { getFirestore, collection, addDoc, serverTimestamp, onSnapshot, query, orderBy, doc, updateDoc, deleteDoc, getDocs, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
+    import { getFirestore, collection, addDoc, serverTimestamp, onSnapshot, query, orderBy, doc, updateDoc, deleteDoc, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
 
     // --- Config (yours) ---
     const firebaseConfig = {
@@ -240,8 +326,12 @@
     const plLife = document.getElementById('plLife');
     const plLifeMeta = document.getElementById('plLifeMeta');
 
+    const pendingTotal = document.getElementById('pendingTotal');
+    const pendingMeta = document.getElementById('pendingMeta');
+
     const seg = document.querySelector('.seg');
     const openAdd = document.getElementById('openAdd');
+    const openAddFab = document.getElementById('openAddFab');
     const sheet = document.getElementById('sheet');
     const closeSheet = document.getElementById('closeSheet');
 
@@ -251,6 +341,16 @@
     const exportCsv = document.getElementById('exportCsv');
     const searchBox = document.getElementById('searchBox');
     const tableBody = document.getElementById('tableBody');
+    const supplierListEl = document.getElementById('supplierList');
+
+    const typeSelect = document.getElementById('type');
+    const partyGroup = document.getElementById('partyGroup');
+    const partyLabel = document.getElementById('partyLabel');
+    const partyInput = document.getElementById('party');
+    const statusGroup = document.getElementById('statusGroup');
+    const statusSelect = document.getElementById('status');
+    const jobIdInput = document.getElementById('jobId');
+    const entryCategorySelect = document.getElementById('entryCategory');
 
     // helpers
     const fmt = (n)=> Number(n||0).toLocaleString(undefined,{style:'currency',currency:'CAD'});
@@ -278,10 +378,16 @@
     let currentRange = 'month'; // default "This month"
     let editingId = null;
 
+    // extra filters
+    let filterType = 'all';   // all | expense | sale | settlement
+    let filterBy = 'both';    // both | Ranveer | Aman
+    let filterStatus = 'all'; // all | paid | pending
+
     function showApp(show){
       authScreen.classList.toggle('hidden', show);
       appScreen.classList.toggle('hidden', !show);
       logoutBtn.classList.toggle('hidden', !show);
+      openAddFab.classList.toggle('hidden', !show);
     }
 
     onAuthStateChanged(auth, user => {
@@ -300,15 +406,26 @@
       authMsg.textContent = '';
       const email = document.getElementById('email').value.trim();
       const password = document.getElementById('password').value;
-      try{ await signInWithEmailAndPassword(auth, email, password); }
-      catch(err){ authMsg.textContent = err.message; }
+      try{
+        await signInWithEmailAndPassword(auth, email, password);
+      } catch(err){
+        authMsg.textContent = 'Sign-in failed. Check email or password.';
+        console.error(err);
+      }
     });
+
     resetBtn.addEventListener('click', async ()=>{
       const email = document.getElementById('email').value.trim();
       if(!email){ authMsg.textContent = 'Enter your email first.'; return; }
-      try{ await sendPasswordResetEmail(auth, email); authMsg.textContent = 'Reset link sent.'; }
-      catch(err){ authMsg.textContent = err.message; }
+      try{
+        await sendPasswordResetEmail(auth, email);
+        authMsg.textContent = 'Reset link sent.';
+      } catch(err){
+        authMsg.textContent = 'Could not send reset link.';
+        console.error(err);
+      }
     });
+
     logoutBtn.addEventListener('click', ()=> signOut(auth));
 
     // Firestore
@@ -339,15 +456,45 @@
       return r==='week' ? 'This week' : r==='month' ? 'This month' : r==='year' ? 'This year' : 'All time';
     }
 
-    // Sheet open/close
-    openAdd.addEventListener('click', ()=>{
-      editingId = null; // new entry
+    // Open sheet for new entry
+    function openNewEntrySheet(){
+      editingId = null;
       deleteEntryBtn.classList.add('hidden');
       entryForm.reset();
       document.getElementById('date').value = todayISO();
+      typeSelect.value = 'expense';
+      statusSelect.value = 'paid';
+      updateFormForType('expense');
+      formMsg.textContent = '';
       sheet.classList.add('on');
-    });
+    }
+
+    // Sheet open/close
+    openAdd.addEventListener('click', openNewEntrySheet);
+    openAddFab.addEventListener('click', openNewEntrySheet);
     closeSheet.addEventListener('click', ()=> sheet.classList.remove('on'));
+
+    // Type-dependent form behavior
+    function updateFormForType(t){
+      if(t === 'expense'){
+        partyGroup.classList.remove('hidden');
+        statusGroup.classList.add('hidden');
+        partyLabel.textContent = 'Bought from (supplier)';
+        partyInput.setAttribute('list','supplierList');
+      } else if(t === 'sale'){
+        partyGroup.classList.remove('hidden');
+        statusGroup.classList.remove('hidden');
+        partyLabel.textContent = 'Sold to (customer)';
+        partyInput.removeAttribute('list');
+      } else { // settlement
+        partyGroup.classList.add('hidden');
+        statusGroup.classList.add('hidden');
+      }
+    }
+
+    typeSelect.addEventListener('change', (e)=>{
+      updateFormForType(e.target.value);
+    });
 
     // Create/Update entry
     entryForm.addEventListener('submit', async (e)=>{
@@ -355,50 +502,107 @@
       formMsg.textContent = '';
       const user = auth.currentUser;
       const rawDate = document.getElementById('date').value || todayISO();
-      const payload = {
-        type: document.getElementById('type').value,
+      const typeVal = typeSelect.value;
+      const amountVal = parseFloat(document.getElementById('amount').value||'0');
+      if(!(amountVal > 0)) { formMsg.textContent = 'Enter a valid amount.'; return; }
+
+      const payloadBase = {
+        type: typeVal,
         by: document.getElementById('by').value,
-        amount: parseFloat(document.getElementById('amount').value||'0'),
-        party: document.getElementById('party').value.trim(),
+        amount: amountVal,
+        party: typeVal === 'settlement' ? '' : (partyInput.value.trim() || ''),
         date: rawDate,
         dateTS: new Date(rawDate),
-        notes: document.getElementById('notes').value.trim()
+        notes: document.getElementById('notes').value.trim(),
+        jobId: jobIdInput.value.trim() || undefined,
+        entryCategory: entryCategorySelect.value || undefined
       };
-      if(!(payload.amount>0)) { formMsg.textContent = 'Enter a valid amount.'; return; }
+
+      if(typeVal === 'sale'){
+        payloadBase.status = statusSelect.value || 'paid';
+      }
 
       try{
         if(editingId){
-          await updateDoc(doc(db,'entries',editingId), payload);
+          await updateDoc(doc(db,'entries',editingId), {
+            ...payloadBase,
+            updatedAt: serverTimestamp(),
+            updatedByEmail: user?.email || 'unknown'
+          });
         } else {
           await addDoc(entriesCol, {
-            ...payload,
+            ...payloadBase,
             createdAt: serverTimestamp(),
             createdByEmail: user?.email || 'unknown',
             createdByUid: user?.uid || null
           });
         }
         sheet.classList.remove('on');
-      }catch(err){ formMsg.textContent = err.message; }
+      }catch(err){
+        formMsg.textContent = 'Error saving entry.';
+        console.error(err);
+      }
     });
 
     deleteEntryBtn.addEventListener('click', async ()=>{
       if(!editingId) return;
       if(!confirm('Delete this entry?')) return;
-      await deleteDoc(doc(db,'entries',editingId));
-      sheet.classList.remove('on');
+      try{
+        await deleteDoc(doc(db,'entries',editingId));
+        sheet.classList.remove('on');
+      } catch(err){
+        console.error(err);
+      }
     });
 
     // Search re-render
     searchBox.addEventListener('input', renderTableAndSettlement);
 
+    // Filter chips
+    function setupFilterGroup(selector, typeKey){
+      const buttons = document.querySelectorAll(selector);
+      buttons.forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          buttons.forEach(b=>b.classList.remove('on'));
+          btn.classList.add('on');
+          const val = btn.getAttribute(typeKey);
+          if(typeKey === 'data-filter-type') filterType = val;
+          if(typeKey === 'data-filter-by') filterBy = val;
+          if(typeKey === 'data-filter-status') filterStatus = val;
+          renderTableAndSettlement();
+        });
+      });
+    }
+
+    setupFilterGroup('.filter-type','data-filter-type');
+    setupFilterGroup('.filter-by','data-filter-by');
+    setupFilterGroup('.filter-status','data-filter-status');
+
     // Export CSV (filtered)
     exportCsv.addEventListener('click', ()=>{
-      const rows = [['id','type','by','amount','party','date','notes','createdByEmail','createdAt']];
+      const rows = [['id','type','by','amount','party','date','notes','status','jobId','entryCategory','createdByEmail','createdAt','updatedByEmail','updatedAt']];
       const filtered = getFiltered(cache);
       filtered.forEach(e=>{
         const created = e.createdAt?.seconds ? new Date(e.createdAt.seconds*1000).toISOString() : '';
+        const updated = e.updatedAt?.seconds ? new Date(e.updatedAt.seconds*1000).toISOString() : '';
         const notes = (e.notes||'').replaceAll('\n',' ').replaceAll('\r',' ');
-        rows.push([e.id,e.type,e.by,e.amount,e.party||'',e.date||'',notes,e.createdByEmail||'',created]);
+        const status = e.type === 'sale' ? (e.status || 'paid') : '';
+        rows.push([
+          e.id,
+          e.type || '',
+          e.by || '',
+          e.amount || 0,
+          e.party || '',
+          e.date || '',
+          notes,
+          status,
+          e.jobId || '',
+          e.entryCategory || '',
+          e.createdByEmail || '',
+          created,
+          e.updatedByEmail || '',
+          updated
+        ]);
       });
       const csv = rows.map(r=> r.map(x=>`"${String(x).replaceAll('"','""')}"`).join(',')).join('\n');
       const blob = new Blob([csv],{type:'text/csv;charset=utf-8;'});
@@ -412,22 +616,30 @@
     function computeSettlement(list){
       let balance=0, expR=0, expA=0, saleR=0, saleA=0;
       for(const e of list){
-        const half = e.amount/2;
+        const amt = Number(e.amount || 0);
+        const half = amt/2;
         if(e.type==='expense'){
-          if(e.by==='Ranveer'){ balance += half; expR += e.amount; }
-          else { balance -= half; expA += e.amount; }
+          if(e.by==='Ranveer'){ balance += half; expR += amt; }
+          else if(e.by==='Aman'){ balance -= half; expA += amt; }
         } else if(e.type==='sale'){
-          if(e.by==='Ranveer'){ balance -= half; saleR += e.amount; }
-          else { balance += half; saleA += e.amount; }
+          if(e.by==='Ranveer'){ balance -= half; saleR += amt; }
+          else if(e.by==='Aman'){ balance += half; saleA += amt; }
+        } else if(e.type==='settlement'){
+          // Partner settlement payment
+          if(e.by==='Ranveer'){ balance -= amt; }
+          else if(e.by==='Aman'){ balance += amt; }
         }
       }
       return { balance, expR, expA, saleR, saleA };
     }
+
     function computePL(list){
       let expense=0, sales=0;
       for(const e of list){
-        if(e.type==='expense') expense += e.amount;
-        else if(e.type==='sale') sales += e.amount;
+        const amt = Number(e.amount || 0);
+        if(e.type==='expense') expense += amt;
+        else if(e.type==='sale') sales += amt;
+        // settlements ignored for P/L
       }
       return { sales, expense, pl: sales - expense };
     }
@@ -446,17 +658,41 @@
         if(currentRange==='week' && d < startWeek) return false;
         if(currentRange==='month' && d < startMonth) return false;
         if(currentRange==='year' && d < startYear) return false;
+
+        if(filterType !== 'all' && (e.type !== filterType)) return false;
+
+        if(filterBy === 'Ranveer' && e.by !== 'Ranveer') return false;
+        if(filterBy === 'Aman' && e.by !== 'Aman') return false;
+
+        if(filterStatus !== 'all'){
+          if(e.type !== 'sale') return false;
+          const status = e.status || 'paid';
+          if(status !== filterStatus) return false;
+        }
+
         if(search){
-          const blob = `${e.type} ${e.by} ${e.party||''} ${e.notes||''} ${e.createdByEmail||''}`.toLowerCase();
+          const blob = `${e.type||''} ${e.by||''} ${e.party||''} ${e.notes||''} ${e.createdByEmail||''} ${e.jobId||''} ${e.entryCategory||''}`.toLowerCase();
           if(!blob.includes(search)) return false;
         }
         return true;
       });
     }
 
+    function refreshSuppliers(){
+      if(!supplierListEl) return;
+      const names = Array.from(new Set(
+        cache
+          .filter(e=> e.type==='expense' && e.party)
+          .map(e=> String(e.party).trim())
+          .filter(Boolean)
+      )).sort((a,b)=> a.localeCompare(b));
+      supplierListEl.innerHTML = names.map(name=>`<option value="${name}"></option>`).join('');
+    }
+
     function renderAll(){
-      // Settlement uses filtered list (matches active range label)
+      // Settlement & table use filtered list (matches active range label & filters)
       renderTableAndSettlement();
+
       // Profit/Loss tiles use fixed periods regardless of current filter
       const now = new Date();
       const monthList = cache.filter(e=> asDate(e.dateTS||e.date) >= getStartOfMonth(now));
@@ -470,12 +706,21 @@
       renderPL(plMonth, plMonthMeta, m);
       renderPL(plYear,  plYearMeta,  y);
       renderPL(plLife,  plLifeMeta,  l);
+
+      // Pending payments (all-time, regardless of filters)
+      const pendingSales = cache.filter(e=> e.type==='sale' && (e.status || 'paid') === 'pending');
+      const pendingAmount = pendingSales.reduce((sum,e)=> sum + (Number(e.amount||0)), 0);
+      pendingTotal.textContent = fmt(pendingAmount);
+      pendingMeta.textContent = pendingSales.length
+        ? `${pendingSales.length} pending sale${pendingSales.length>1?'s':''}`
+        : 'No pending payments.';
+
+      // Suppliers list
+      refreshSuppliers();
     }
 
     function renderPL(target, metaEl, obj){
       target.textContent = `${obj.pl >= 0 ? '+' : ''}${fmt(obj.pl)}`;
-      target.classList.toggle('text-base-good', obj.pl >= 0);
-      target.classList.toggle('text-base-bad', obj.pl < 0);
       target.style.color = obj.pl >= 0 ? '#34d399' : '#fb7185';
       metaEl.textContent = `Sales ${fmt(obj.sales)} • Expenses ${fmt(obj.expense)}`;
     }
@@ -485,9 +730,16 @@
       const { balance, expR, expA, saleR, saleA } = computeSettlement(entries);
 
       // Settlement box
-      if(balance > 0) settlementBox.textContent = `Aman owes Ranveer ${fmt(balance)}`;
-      else if(balance < 0) settlementBox.textContent = `Ranveer owes Aman ${fmt(Math.abs(balance))}`;
-      else settlementBox.textContent = 'You are square. 0.00 CAD';
+      if(balance > 0){
+        settlementBox.textContent = `Aman owes Ranveer ${fmt(balance)}`;
+        settlementBox.style.color = '#34d399';
+      } else if(balance < 0){
+        settlementBox.textContent = `Ranveer owes Aman ${fmt(Math.abs(balance))}`;
+        settlementBox.style.color = '#fb7185';
+      } else {
+        settlementBox.textContent = 'You are square. 0.00 CAD';
+        settlementBox.style.color = '#eef1ff';
+      }
 
       settleMeta.innerHTML = `
         <div>Total expenses — Ranveer: <b>${fmt(expR)}</b>, Aman: <b>${fmt(expA)}</b></div>
@@ -499,20 +751,53 @@
       tableBody.innerHTML = entries.map(e=>{
         const d = asDate(e.dateTS || e.date);
         const dateStr = isNaN(d) ? (e.date || '') : d.toISOString().slice(0,10);
-        const half = e.amount/2;
-        const owes = e.type==='expense'
-          ? (e.by==='Ranveer' ? `Aman → ${fmt(half)}` : `Ranveer → ${fmt(half)}`)
-          : (e.by==='Ranveer' ? `Ranveer → ${fmt(half)}` : `Aman → ${fmt(half)}`);
+        const amt = Number(e.amount || 0);
+        const half = amt/2;
+
+        let owes = '';
+        if(e.type === 'expense'){
+          owes = e.by==='Ranveer'
+            ? `Aman → ${fmt(half)}`
+            : `Ranveer → ${fmt(half)}`;
+        } else if(e.type === 'sale'){
+          owes = e.by==='Ranveer'
+            ? `Ranveer → ${fmt(half)}`
+            : `Aman → ${fmt(half)}`;
+        } else if(e.type === 'settlement'){
+          owes = 'Settlement';
+        }
+
+        const status = e.type === 'sale' ? (e.status || 'paid') : null;
+        let typeLabel = e.type || '';
+        if(e.type === 'expense') typeLabel = 'expense';
+        if(e.type === 'sale') typeLabel = 'sale';
+        if(e.type === 'settlement') typeLabel = 'settlement';
+
+        const typeColorClass = e.type==='expense'
+          ? 'text-red-300'
+          : e.type==='sale'
+            ? 'text-green-300'
+            : 'text-blue-300';
+
+        let statusBadge = '';
+        if(status === 'pending'){
+          statusBadge = '<span class="ml-2 text-[10px] px-2 py-0.5 rounded-full bg-yellow-500/20 text-yellow-300">Pending</span>';
+        } else if(status === 'paid'){
+          statusBadge = '<span class="ml-2 text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300">Paid</span>';
+        }
+
         return `<tr>
           <td class="p-2">${dateStr}</td>
-          <td class="p-2 ${e.type==='expense'?'text-red-300':'text-green-300'}">${e.type}</td>
-          <td class="p-2">${e.by}</td>
-          <td class="p-2 text-right">${fmt(e.amount)}</td>
-          <td class="p-2">${e.party||''}</td>
-          <td class="p-2">${e.notes||''}</td>
-          <td class="p-2">${e.createdByEmail||''}</td>
+          <td class="p-2 ${typeColorClass}">${typeLabel}${status ? statusBadge : ''}</td>
+          <td class="p-2">${e.by || ''}</td>
+          <td class="p-2 text-right">${fmt(amt)}</td>
+          <td class="p-2">${e.party || ''}</td>
+          <td class="p-2">${e.notes || ''}</td>
+          <td class="p-2">${e.createdByEmail || ''}</td>
           <td class="p-2 text-right">${owes}</td>
-          <td class="p-2 text-right"><button class="link tap-target" data-id="${e.id}" data-action="edit">Edit</button></td>
+          <td class="p-2 text-right">
+            <button class="link tap-target text-indigo-300 underline text-xs" data-id="${e.id}" data-action="edit">Edit</button>
+          </td>
         </tr>`;
       }).join('');
     }
@@ -525,19 +810,33 @@
       const e = cache.find(x=>x.id===id);
       if(!e) return;
       editingId = id;
-      document.getElementById('type').value = e.type;
-      document.getElementById('by').value = e.by;
-      document.getElementById('amount').value = e.amount;
-      document.getElementById('party').value = e.party || '';
+
+      typeSelect.value = e.type || 'expense';
+      document.getElementById('by').value = e.by || 'Ranveer';
+      document.getElementById('amount').value = e.amount || 0;
+      partyInput.value = e.party || '';
       const d = asDate(e.dateTS || e.date);
       document.getElementById('date').value = isNaN(d) ? (e.date || '') : d.toISOString().slice(0,10);
       document.getElementById('notes').value = e.notes || '';
+      jobIdInput.value = e.jobId || '';
+      entryCategorySelect.value = e.entryCategory || '';
+
+      if(e.type === 'sale'){
+        statusSelect.value = e.status || 'paid';
+      } else {
+        statusSelect.value = 'paid';
+      }
+
+      updateFormForType(typeSelect.value);
       deleteEntryBtn.classList.remove('hidden');
+      formMsg.textContent = '';
       sheet.classList.add('on');
     });
 
     // Init defaults
     document.getElementById('date').value = todayISO();
+    statusSelect.value = 'paid';
+    updateFormForType('expense');
   </script>
 </body>
 </html>
