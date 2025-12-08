@@ -27,7 +27,8 @@
     padding-top: env(safe-area-inset-top); padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right);
   }
   .card{background:#18223c;border:1px solid #2a3357;border-radius:16px}
-  .chip{border:1px solid #2a3357}
+  .chip{border:1px solid #2a3357;border-radius:999px;padding:.25rem .7rem;font-size:.75rem}
+  .chip.on{background:#2a3357;}
   .input{background:transparent;border:1px solid #2a3357;border-radius:12px;padding:.75rem;font-size:16px}
   .btn{background:#6c85ff;color:#000;font-weight:600;border-radius:12px;padding:.75rem 1rem}
   .btn.ghost{background:transparent;border:1px solid #2a3357;color:#eef1ff}
@@ -39,24 +40,34 @@
   tr:last-child td{border-bottom:none}
   .hidden{display:none}
   /* iOS keyboard-safe modal sheet */
-  .sheet{position:fixed;inset:0;display:none}
+  .sheet{position:fixed;inset:0;display:none;z-index:40;background:rgba(0,0,0,.5);}
   .sheet.on{display:flex}
   .sheet .panel{background:#18223c;border:1px solid #2a3357;border-radius:20px 20px 0 0;margin-top:auto;width:100%;
     max-height:92vh;overflow:auto;box-shadow:var(--shadow, 0 10px 50px rgba(0,0,0,.45));padding-bottom:env(safe-area-inset-bottom)}
   .tap-target{min-height:44px;min-width:44px}
+  .nav-tab{padding:.5rem .9rem;border-radius:999px;font-size:.85rem;border:1px solid transparent;}
+  .nav-tab.active{background:#2a3357;border-color:#3a4470;}
 </style>
 </head>
 <body class="min-h-screen">
   <!-- Minimal iOS-friendly Header -->
-  <header class="sticky top-0 z-30 backdrop-blur bg-black/20 border-b border-[#2a3357]">
+  <header class="sticky top-0 z-40 backdrop-blur bg-black/40 border-b border-[#2a3357]">
     <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
       <div class="flex items-center gap-3">
         <div class="h-9 w-9 rounded-xl bg-[#6c85ff]/20 grid place-items-center">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 7h16M4 12h10M4 17h16" stroke="#9db0ff" stroke-width="2" stroke-linecap="round"/></svg>
         </div>
-        <div class="font-bold">The Print Room — Ledger</div>
+        <div class="font-bold text-sm sm:text-base">The Print Room — Ledger</div>
       </div>
-      <button id="logoutBtn" class="btn ghost tap-target hidden">Logout</button>
+      <button id="logoutBtn" class="btn ghost tap-target hidden text-sm px-3 py-2">Logout</button>
+    </div>
+    <!-- Top nav tabs -->
+    <div id="topNav" class="max-w-7xl mx-auto px-4 pb-3 flex gap-2 overflow-x-auto text-xs sm:text-sm">
+      <button class="nav-tab active" data-page="dashboard">Dashboard</button>
+      <button class="nav-tab" data-page="all">All entries</button>
+      <button class="nav-tab" data-page="sales">Sales</button>
+      <button class="nav-tab" data-page="expenses">Expenses</button>
+      <button class="nav-tab" data-page="pending">Pending payments</button>
     </div>
   </header>
 
@@ -75,96 +86,166 @@
       </div>
       <button class="btn tap-target" type="submit">Sign in</button>
       <button id="resetBtn" class="btn ghost tap-target" type="button">Send password reset</button>
-      <div id="authMsg" class="text-sm text-white/70"></div>
+      <div id="authMsg" class="text-sm text-white/70 mt-1"></div>
     </form>
   </section>
 
   <!-- App Screen -->
   <main id="appScreen" class="max-w-7xl mx-auto px-4 py-6 grid gap-6 hidden">
-    <!-- Settlement + P/L summary -->
-    <section class="grid lg:grid-cols-3 gap-6">
-      <div class="card p-5 lg:col-span-3">
-        <div class="flex items-center justify-between gap-3 flex-wrap">
-          <div>
-            <div class="text-sm text-white/60">Settlement • <span id="activeRangeLabel">This month</span></div>
-            <div id="settlementBox" class="mt-1 text-2xl font-extrabold"></div>
-            <div id="settleMeta" class="text-xs text-white/60 mt-1"></div>
-          </div>
-          <div class="seg flex">
-            <button class="tap-target" data-range="week">Week</button>
-            <button class="tap-target on" data-range="month">Month</button>
-            <button class="tap-target" data-range="year">Year</button>
-            <button class="tap-target" data-range="life">All</button>
+    <!-- DASHBOARD PAGE -->
+    <section id="page-dashboard" class="grid gap-6">
+      <!-- Settlement + P/L summary -->
+      <section class="grid lg:grid-cols-3 gap-6">
+        <!-- Net settlement -->
+        <div class="card p-5 lg:col-span-3">
+          <div class="flex items-center justify-between gap-3 flex-wrap">
+            <div>
+              <div class="text-sm text-white/60">Settlement • <span id="activeRangeLabel">This month</span></div>
+              <div id="settlementBox" class="mt-1 text-2xl font-extrabold"></div>
+              <div id="settleMeta" class="text-xs text-white/60 mt-1"></div>
+            </div>
+            <div class="seg flex text-xs">
+              <button class="tap-target" data-range="week">Week</button>
+              <button class="tap-target on" data-range="month">Month</button>
+              <button class="tap-target" data-range="year">Year</button>
+              <button class="tap-target" data-range="life">All</button>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div class="card p-5">
-        <div class="text-sm text-white/60">Profit/Loss • This month</div>
-        <div id="plMonth" class="mt-1 text-2xl font-extrabold"></div>
-        <div id="plMonthMeta" class="text-xs text-white/60 mt-1"></div>
-      </div>
-      <div class="card p-5">
-        <div class="text-sm text-white/60">Profit/Loss • This year</div>
-        <div id="plYear" class="mt-1 text-2xl font-extrabold"></div>
-        <div id="plYearMeta" class="text-xs text-white/60 mt-1"></div>
-      </div>
-      <div class="card p-5">
-        <div class="text-sm text-white/60">Profit/Loss • Lifetime</div>
-        <div id="plLife" class="mt-1 text-2xl font-extrabold"></div>
-        <div id="plLifeMeta" class="text-xs text-white/60 mt-1"></div>
-      </div>
+        <!-- P/L tiles -->
+        <div class="card p-5">
+          <div class="text-sm text-white/60">Profit/Loss • This month</div>
+          <div id="plMonth" class="mt-1 text-2xl font-extrabold"></div>
+          <div id="plMonthMeta" class="text-xs text-white/60 mt-1"></div>
+        </div>
+        <div class="card p-5">
+          <div class="text-sm text-white/60">Profit/Loss • This year</div>
+          <div id="plYear" class="mt-1 text-2xl font-extrabold"></div>
+          <div id="plYearMeta" class="text-xs text-white/60 mt-1"></div>
+        </div>
+        <div class="card p-5">
+          <div class="text-sm text-white/60">Profit/Loss • Lifetime</div>
+          <div id="plLife" class="mt-1 text-2xl font-extrabold"></div>
+          <div id="plLifeMeta" class="text-xs text-white/60 mt-1"></div>
+        </div>
 
-      <div class="lg:col-span-3 flex items-center gap-3">
-        <button id="openAdd" class="btn tap-target">Add entry</button>
-      </div>
+        <!-- Pending payments summary -->
+        <div class="card p-5 lg:col-span-3">
+          <div class="flex items-center justify-between gap-3 flex-wrap">
+            <div>
+              <div class="text-sm text-white/60">Pending customer payments</div>
+              <div id="pendingTotal" class="mt-1 text-xl font-bold"></div>
+              <div id="pendingMeta" class="text-xs text-white/60 mt-1"></div>
+            </div>
+            <button id="openAdd" class="btn tap-target text-sm">Add entry</button>
+          </div>
+        </div>
+      </section>
     </section>
 
-    <!-- Entries List -->
-    <section class="card p-5">
-      <div class="flex flex-wrap items-center gap-2">
-        <h2 class="text-lg font-bold mr-auto">Entries</h2>
-        <input id="searchBox" class="input" placeholder="Search party, notes…" />
-        <button id="exportCsv" class="btn ghost tap-target">Export CSV (filtered)</button>
-      </div>
-      <div class="overflow-auto mt-4">
-        <table class="w-full text-sm">
-          <thead class="text-white/60">
-            <tr>
-              <th class="text-left p-2">Date</th>
-              <th class="text-left p-2">Type</th>
-              <th class="text-left p-2">By</th>
-              <th class="text-right p-2">Amount</th>
-              <th class="text-left p-2">Party</th>
-              <th class="text-left p-2">Notes</th>
-              <th class="text-left p-2">Added by</th>
-              <th class="text-right p-2">Owes Half</th>
-              <th class="text-right p-2">Actions</th>
-            </tr>
-          </thead>
-          <tbody id="tableBody"></tbody>
-        </table>
-      </div>
-      <div class="mt-3 text-xs text-white/60">Rule: Expense by X means the other owes X half. Sale by X means X owes the other half.</div>
+    <!-- ENTRIES PAGE (reused for All / Sales / Expenses / Pending) -->
+    <section id="page-entries" class="grid gap-4 hidden">
+      <section class="card p-5">
+        <!-- Header row -->
+        <div class="flex flex-wrap items-center gap-2 mb-3">
+          <h2 class="text-lg font-bold mr-auto" id="entriesTitle">Entries</h2>
+          <button id="exportCsv" class="btn ghost tap-target text-xs sm:text-sm">Export CSV (filtered)</button>
+        </div>
+
+        <!-- Search row -->
+        <div class="mb-3">
+          <input id="searchBox" class="input w-full" placeholder="Search type, party, notes…" />
+        </div>
+
+        <!-- Filter chips in collapsible -->
+        <details class="mt-1">
+          <summary class="text-xs text-white/60 cursor-pointer">Filters (optional)</summary>
+          <div class="mt-2 flex flex-wrap gap-3 text-xs">
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="text-white/50">Type:</span>
+              <button class="chip tap-target filter-type on" data-filter-type="all">All</button>
+              <button class="chip tap-target filter-type" data-filter-type="expense">Expenses</button>
+              <button class="chip tap-target filter-type" data-filter-type="sale">Sales</button>
+              <button class="chip tap-target filter-type" data-filter-type="settlement">Settlements</button>
+            </div>
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="text-white/50">By:</span>
+              <button class="chip tap-target filter-by on" data-filter-by="both">Both</button>
+              <button class="chip tap-target filter-by" data-filter-by="Ranveer">Ranveer</button>
+              <button class="chip tap-target filter-by" data-filter-by="Aman">Aman</button>
+            </div>
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="text-white/50">Status:</span>
+              <button class="chip tap-target filter-status on" data-filter-status="all">All</button>
+              <button class="chip tap-target filter-status" data-filter-status="paid">Paid</button>
+              <button class="chip tap-target filter-status" data-filter-status="pending">Pending</button>
+            </div>
+          </div>
+        </details>
+
+        <!-- Table -->
+        <div class="overflow-auto mt-4">
+          <table class="w-full text-xs sm:text-sm">
+            <thead class="text-white/60">
+              <tr>
+                <th class="text-left p-2">Date</th>
+                <th class="text-left p-2">Type</th>
+                <th class="text-left p-2">By</th>
+                <th class="text-right p-2">Amount</th>
+                <th class="text-left p-2">Party</th>
+                <th class="text-left p-2">Notes</th>
+                <th class="text-left p-2 hidden md:table-cell">Added by</th>
+                <th class="text-right p-2">Who pays whom</th>
+                <th class="text-right p-2">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+          </table>
+        </div>
+        <div class="mt-3 text-xs text-white/60">
+          <div>Rules:</div>
+          <ul class="list-disc pl-4 mt-1 space-y-1">
+            <li>Expense: the other partner has to pay back 50% of that expense.</li>
+            <li>Sale: the partner who made the sale has to give 50% of that sale to the other partner.</li>
+            <li>Settlement: full amount is counted as one partner paying the other to settle the running balance.</li>
+          </ul>
+        </div>
+      </section>
     </section>
   </main>
+
+  <!-- Floating Add button (mobile) -->
+  <button id="openAddFab" class="fixed bottom-5 right-5 md:hidden btn rounded-full shadow-soft tap-target hidden z-40">
+    +
+  </button>
 
   <!-- Add/Edit Sheet -->
   <div id="sheet" class="sheet items-stretch justify-center">
     <div class="panel">
       <div class="p-4 border-b border-[#2a3357] flex items-center justify-between sticky top-0 bg-[#18223c]">
         <div class="font-bold">Entry</div>
-        <button id="closeSheet" class="btn ghost tap-target">Close</button>
+        <button id="closeSheet" class="btn ghost tap-target text-sm px-3 py-2">Close</button>
       </div>
       <form id="entryForm" class="p-4 grid gap-3">
         <input type="hidden" id="editId" />
+
+        <!-- TYPE with segmented buttons -->
         <div class="grid gap-1">
           <label class="text-xs text-white/70">Type</label>
-          <select id="type" class="input" required>
+          <div class="seg flex text-xs mb-2" id="typeSeg">
+            <button type="button" class="tap-target on" data-type="expense">Expense</button>
+            <button type="button" class="tap-target" data-type="sale">Sale</button>
+            <button type="button" class="tap-target" data-type="settlement">Settlement</button>
+          </div>
+          <!-- keep select for form logic, but hidden -->
+          <select id="type" class="input hidden" required>
             <option value="expense">Expense / Purchase</option>
             <option value="sale">Sale / Payment received</option>
+            <option value="settlement">Partner settlement payment</option>
           </select>
         </div>
+
         <div class="grid gap-1">
           <label class="text-xs text-white/70">Who made it</label>
           <select id="by" class="input" required>
@@ -176,14 +257,47 @@
           <label class="text-xs text-white/70">Amount (CAD)</label>
           <input id="amount" type="number" step="0.01" min="0" class="input" placeholder="100" required />
         </div>
-        <div class="grid gap-1">
-          <label class="text-xs text-white/70">Sold to / Bought from</label>
-          <input id="party" class="input" placeholder="Client or supplier name" />
+
+        <!-- Party/Supplier -->
+        <div class="grid gap-1" id="partyGroup">
+          <label class="text-xs text-white/70" id="partyLabel">Sold to / Bought from</label>
+          <input id="party" class="input" placeholder="Client or supplier name" list="supplierList" />
+          <datalist id="supplierList"></datalist>
         </div>
+
+        <!-- Sale status -->
+        <div class="grid gap-1" id="statusGroup">
+          <label class="text-xs text-white/70">Payment status (for sales)</label>
+          <select id="status" class="input">
+            <option value="paid">Paid</option>
+            <option value="pending">Pending</option>
+          </select>
+        </div>
+
         <div class="grid gap-1">
           <label class="text-xs text-white/70">Date</label>
           <input id="date" type="date" class="input" />
         </div>
+
+        <!-- Job / Project -->
+        <div class="grid gap-1">
+          <label class="text-xs text-white/70">Job / Project ID (optional)</label>
+          <input id="jobId" class="input" placeholder="e.g. Backdrop-2025-01-15" />
+        </div>
+
+        <!-- Category -->
+        <div class="grid gap-1">
+          <label class="text-xs text-white/70">Category (optional)</label>
+          <select id="entryCategory" class="input">
+            <option value="">Uncategorized</option>
+            <option value="materials">Materials</option>
+            <option value="tools">Tools</option>
+            <option value="printing">Printing</option>
+            <option value="decor">Decor</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+
         <div class="grid gap-1">
           <label class="text-xs text-white/70">Notes</label>
           <textarea id="notes" class="input" rows="3" placeholder="Paper stock, job id, etc."></textarea>
@@ -192,19 +306,17 @@
           <button class="btn tap-target" type="submit">Save</button>
           <button id="deleteEntry" type="button" class="btn ghost tap-target hidden">Delete</button>
         </div>
-        <div id="formMsg" class="text-sm text-white/70"></div>
+        <div id="formMsg" class="text-sm text-white/70 mt-1"></div>
       </form>
     </div>
   </div>
 
   <!-- Firebase + App Logic -->
   <script type="module">
-    // Firebase v9+ modular from CDN
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
     import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, sendPasswordResetEmail, signOut } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
-    import { getFirestore, collection, addDoc, serverTimestamp, onSnapshot, query, orderBy, doc, updateDoc, deleteDoc, getDocs, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
+    import { getFirestore, collection, addDoc, serverTimestamp, onSnapshot, query, orderBy, doc, updateDoc, deleteDoc, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
 
-    // --- Config (yours) ---
     const firebaseConfig = {
       apiKey: "AIzaSyBALPTzgm1uiVCW4bwMJC2TPrWSsF-cCwQ",
       authDomain: "theprintroomlondon-6f586.firebaseapp.com",
@@ -240,8 +352,12 @@
     const plLife = document.getElementById('plLife');
     const plLifeMeta = document.getElementById('plLifeMeta');
 
+    const pendingTotal = document.getElementById('pendingTotal');
+    const pendingMeta = document.getElementById('pendingMeta');
+
     const seg = document.querySelector('.seg');
     const openAdd = document.getElementById('openAdd');
+    const openAddFab = document.getElementById('openAddFab');
     const sheet = document.getElementById('sheet');
     const closeSheet = document.getElementById('closeSheet');
 
@@ -251,8 +367,27 @@
     const exportCsv = document.getElementById('exportCsv');
     const searchBox = document.getElementById('searchBox');
     const tableBody = document.getElementById('tableBody');
+    const supplierListEl = document.getElementById('supplierList');
 
-    // helpers
+    const typeSelect = document.getElementById('type');
+    const typeSeg = document.getElementById('typeSeg');
+    const partyGroup = document.getElementById('partyGroup');
+    const partyLabel = document.getElementById('partyLabel');
+    const partyInput = document.getElementById('party');
+    const statusGroup = document.getElementById('statusGroup');
+    const statusSelect = document.getElementById('status');
+    const jobIdInput = document.getElementById('jobId');
+    const entryCategorySelect = document.getElementById('entryCategory');
+
+    const pageDashboard = document.getElementById('page-dashboard');
+    const pageEntries = document.getElementById('page-entries');
+    const entriesTitle = document.getElementById('entriesTitle');
+    const navTabs = document.querySelectorAll('.nav-tab');
+
+    const filterTypeButtons = document.querySelectorAll('.filter-type');
+    const filterByButtons = document.querySelectorAll('.filter-by');
+    const filterStatusButtons = document.querySelectorAll('.filter-status');
+
     const fmt = (n)=> Number(n||0).toLocaleString(undefined,{style:'currency',currency:'CAD'});
     const todayISO = ()=> new Date().toISOString().slice(0,10);
     const asDate = (val)=>{
@@ -262,11 +397,10 @@
       return new Date(val);
     };
 
-    // week start Monday 00:00 local, inclusive
     function getStartOfWeek(d=new Date()){
       const t = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-      const day = t.getDay(); // 0 Sun .. 6 Sat
-      const diff = (day + 6) % 7; // 0 for Mon
+      const day = t.getDay();
+      const diff = (day + 6) % 7;
       t.setDate(t.getDate() - diff);
       return t;
     }
@@ -275,13 +409,19 @@
 
     let unsubscribe = null;
     let cache = [];
-    let currentRange = 'month'; // default "This month"
+    let currentRange = 'month';
     let editingId = null;
+
+    let filterType = 'all';   // all | expense | sale | settlement
+    let filterBy = 'both';    // both | Ranveer | Aman
+    let filterStatus = 'all'; // all | paid | pending
+    let currentPage = 'dashboard';
 
     function showApp(show){
       authScreen.classList.toggle('hidden', show);
       appScreen.classList.toggle('hidden', !show);
       logoutBtn.classList.toggle('hidden', !show);
+      openAddFab.classList.toggle('hidden', !show);
     }
 
     onAuthStateChanged(auth, user => {
@@ -300,23 +440,32 @@
       authMsg.textContent = '';
       const email = document.getElementById('email').value.trim();
       const password = document.getElementById('password').value;
-      try{ await signInWithEmailAndPassword(auth, email, password); }
-      catch(err){ authMsg.textContent = err.message; }
+      try{
+        await signInWithEmailAndPassword(auth, email, password);
+      } catch(err){
+        authMsg.textContent = 'Sign-in failed. Check email or password.';
+        console.error(err);
+      }
     });
+
     resetBtn.addEventListener('click', async ()=>{
       const email = document.getElementById('email').value.trim();
       if(!email){ authMsg.textContent = 'Enter your email first.'; return; }
-      try{ await sendPasswordResetEmail(auth, email); authMsg.textContent = 'Reset link sent.'; }
-      catch(err){ authMsg.textContent = err.message; }
+      try{
+        await sendPasswordResetEmail(auth, email);
+        authMsg.textContent = 'Reset link sent.';
+      } catch(err){
+        authMsg.textContent = 'Could not send reset link.';
+        console.error(err);
+      }
     });
+
     logoutBtn.addEventListener('click', ()=> signOut(auth));
 
-    // Firestore
     const entriesCol = collection(db, 'entries');
 
     function attachListener(){
       if(unsubscribe) unsubscribe();
-      // single index-free ordering, we will sort client-side by date later
       const q = query(entriesCol, orderBy('createdAt','desc'));
       unsubscribe = onSnapshot(q, snap => {
         cache = snap.docs.map(d=> ({ id: d.id, ...d.data() }));
@@ -324,7 +473,7 @@
       }, err => console.error(err));
     }
 
-    // Range switching (segmented control)
+    // Range switching
     seg.addEventListener('click', (e)=>{
       const btn = e.target.closest('button[data-range]');
       if(!btn) return;
@@ -339,66 +488,221 @@
       return r==='week' ? 'This week' : r==='month' ? 'This month' : r==='year' ? 'This year' : 'All time';
     }
 
-    // Sheet open/close
-    openAdd.addEventListener('click', ()=>{
-      editingId = null; // new entry
+    // Pages nav
+    navTabs.forEach(tab=>{
+      tab.addEventListener('click', ()=>{
+        navTabs.forEach(t=>t.classList.remove('active'));
+        tab.classList.add('active');
+        currentPage = tab.dataset.page;
+        if(currentPage === 'dashboard'){
+          pageDashboard.classList.remove('hidden');
+          pageEntries.classList.add('hidden');
+        } else {
+          pageDashboard.classList.add('hidden');
+          pageEntries.classList.remove('hidden');
+        }
+
+        // Set filters based on page
+        if(currentPage === 'all'){
+          setFilterType('all');
+          setFilterStatus('all');
+          entriesTitle.textContent = 'All entries';
+        } else if(currentPage === 'sales'){
+          setFilterType('sale');
+          setFilterStatus('all');
+          entriesTitle.textContent = 'Sales';
+        } else if(currentPage === 'expenses'){
+          setFilterType('expense');
+          setFilterStatus('all');
+          entriesTitle.textContent = 'Expenses';
+        } else if(currentPage === 'pending'){
+          setFilterType('sale');
+          setFilterStatus('pending');
+          entriesTitle.textContent = 'Pending payments';
+        }
+        renderTableAndSettlement();
+      });
+    });
+
+    function updateFormForType(t){
+      if(t === 'expense'){
+        partyGroup.classList.remove('hidden');
+        statusGroup.classList.add('hidden');
+        partyLabel.textContent = 'Bought from (supplier)';
+        partyInput.setAttribute('list','supplierList');
+      } else if(t === 'sale'){
+        partyGroup.classList.remove('hidden');
+        statusGroup.classList.remove('hidden');
+        partyLabel.textContent = 'Sold to (customer)';
+        partyInput.removeAttribute('list');
+      } else { // settlement
+        partyGroup.classList.add('hidden');
+        statusGroup.classList.add('hidden');
+      }
+    }
+
+    // helper to sync type select + segment
+    function setType(t){
+      typeSelect.value = t;
+      updateFormForType(t);
+      if(typeSeg){
+        typeSeg.querySelectorAll('button').forEach(btn=>{
+          btn.classList.toggle('on', btn.dataset.type === t);
+        });
+      }
+    }
+
+    // segmented control click
+    typeSeg.addEventListener('click', (e)=>{
+      const btn = e.target.closest('button[data-type]');
+      if(!btn) return;
+      const t = btn.dataset.type;
+      setType(t);
+    });
+
+    // in case select changes by keyboard
+    typeSelect.addEventListener('change', (e)=>{
+      setType(e.target.value);
+    });
+
+    function openNewEntrySheet(){
+      editingId = null;
       deleteEntryBtn.classList.add('hidden');
       entryForm.reset();
       document.getElementById('date').value = todayISO();
+      setType('expense');
+      statusSelect.value = 'paid';
+      formMsg.textContent = '';
       sheet.classList.add('on');
-    });
+    }
+
+    openAdd.addEventListener('click', openNewEntrySheet);
+    openAddFab.addEventListener('click', openNewEntrySheet);
     closeSheet.addEventListener('click', ()=> sheet.classList.remove('on'));
 
-    // Create/Update entry
     entryForm.addEventListener('submit', async (e)=>{
       e.preventDefault();
       formMsg.textContent = '';
       const user = auth.currentUser;
       const rawDate = document.getElementById('date').value || todayISO();
-      const payload = {
-        type: document.getElementById('type').value,
+      const typeVal = typeSelect.value;
+      const amountVal = parseFloat(document.getElementById('amount').value||'0');
+      if(!(amountVal > 0)) { formMsg.textContent = 'Enter a valid amount.'; return; }
+
+      const payloadBase = {
+        type: typeVal,
         by: document.getElementById('by').value,
-        amount: parseFloat(document.getElementById('amount').value||'0'),
-        party: document.getElementById('party').value.trim(),
+        amount: amountVal,
+        party: typeVal === 'settlement' ? '' : (partyInput.value.trim() || ''),
         date: rawDate,
         dateTS: new Date(rawDate),
         notes: document.getElementById('notes').value.trim()
       };
-      if(!(payload.amount>0)) { formMsg.textContent = 'Enter a valid amount.'; return; }
+
+      const job = jobIdInput.value.trim();
+      const cat = entryCategorySelect.value;
+      if(job) payloadBase.jobId = job;
+      if(cat) payloadBase.entryCategory = cat;
+
+      if(typeVal === 'sale'){
+        payloadBase.status = statusSelect.value || 'paid';
+      }
 
       try{
         if(editingId){
-          await updateDoc(doc(db,'entries',editingId), payload);
+          const updatePayload = {
+            ...payloadBase,
+            updatedAt: serverTimestamp(),
+            updatedByEmail: user?.email || 'unknown'
+          };
+          await updateDoc(doc(db,'entries',editingId), updatePayload);
         } else {
-          await addDoc(entriesCol, {
-            ...payload,
+          const createPayload = {
+            ...payloadBase,
             createdAt: serverTimestamp(),
             createdByEmail: user?.email || 'unknown',
             createdByUid: user?.uid || null
-          });
+          };
+          await addDoc(entriesCol, createPayload);
         }
         sheet.classList.remove('on');
-      }catch(err){ formMsg.textContent = err.message; }
+      }catch(err){
+        formMsg.textContent = 'Error: ' + (err.message || 'could not save entry');
+        console.error(err);
+      }
     });
 
     deleteEntryBtn.addEventListener('click', async ()=>{
       if(!editingId) return;
       if(!confirm('Delete this entry?')) return;
-      await deleteDoc(doc(db,'entries',editingId));
-      sheet.classList.remove('on');
+      try{
+        await deleteDoc(doc(db,'entries',editingId));
+        sheet.classList.remove('on');
+      } catch(err){
+        console.error(err);
+      }
     });
 
-    // Search re-render
     searchBox.addEventListener('input', renderTableAndSettlement);
 
-    // Export CSV (filtered)
+    function setFilterType(val){
+      filterType = val;
+      filterTypeButtons.forEach(b=>{
+        b.classList.toggle('on', b.dataset.filterType === val || (val==='all' && b.dataset.filterType==='all'));
+      });
+    }
+    function setFilterStatus(val){
+      filterStatus = val;
+      filterStatusButtons.forEach(b=>{
+        b.classList.toggle('on', b.dataset.filterStatus === val || (val==='all' && b.dataset.filterStatus==='all'));
+      });
+    }
+
+    filterTypeButtons.forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        setFilterType(btn.dataset.filterType);
+        renderTableAndSettlement();
+      });
+    });
+    filterByButtons.forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        filterByButtons.forEach(b=>b.classList.remove('on'));
+        btn.classList.add('on');
+        filterBy = btn.dataset.filterBy;
+        renderTableAndSettlement();
+      });
+    });
+    filterStatusButtons.forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        setFilterStatus(btn.dataset.filterStatus);
+        renderTableAndSettlement();
+      });
+    });
+
     exportCsv.addEventListener('click', ()=>{
-      const rows = [['id','type','by','amount','party','date','notes','createdByEmail','createdAt']];
+      const rows = [['id','type','by','amount','party','date','notes','status','jobId','entryCategory','createdByEmail','createdAt','updatedByEmail','updatedAt']];
       const filtered = getFiltered(cache);
       filtered.forEach(e=>{
         const created = e.createdAt?.seconds ? new Date(e.createdAt.seconds*1000).toISOString() : '';
+        const updated = e.updatedAt?.seconds ? new Date(e.updatedAt.seconds*1000).toISOString() : '';
         const notes = (e.notes||'').replaceAll('\n',' ').replaceAll('\r',' ');
-        rows.push([e.id,e.type,e.by,e.amount,e.party||'',e.date||'',notes,e.createdByEmail||'',created]);
+        const status = e.type === 'sale' ? (e.status || 'paid') : '';
+        rows.push([
+          e.id,
+          e.type || '',
+          e.by || '',
+          e.amount || 0,
+          e.party || '',
+          e.date || '',
+          notes,
+          status,
+          e.jobId || '',
+          e.entryCategory || '',
+          e.createdByEmail || '',
+          created,
+          e.updatedByEmail || '',
+          updated
+        ]);
       });
       const csv = rows.map(r=> r.map(x=>`"${String(x).replaceAll('"','""')}"`).join(',')).join('\n');
       const blob = new Blob([csv],{type:'text/csv;charset=utf-8;'});
@@ -408,32 +712,42 @@
       URL.revokeObjectURL(url);
     });
 
-    // Compute helpers
     function computeSettlement(list){
       let balance=0, expR=0, expA=0, saleR=0, saleA=0;
       for(const e of list){
-        const half = e.amount/2;
+        const amt = Number(e.amount || 0);
+        const half = amt/2;
         if(e.type==='expense'){
-          if(e.by==='Ranveer'){ balance += half; expR += e.amount; }
-          else { balance -= half; expA += e.amount; }
+          if(e.by==='Ranveer'){ balance += half; expR += amt; }
+          else if(e.by==='Aman'){ balance -= half; expA += amt; }
         } else if(e.type==='sale'){
-          if(e.by==='Ranveer'){ balance -= half; saleR += e.amount; }
-          else { balance += half; saleA += e.amount; }
+          if(e.by==='Ranveer'){ balance -= half; saleR += amt; }
+          else if(e.by==='Aman'){ balance += half; saleA += amt; }
+        } else if(e.type==='settlement'){
+          // FULL amount, no 50%
+          if(e.by === 'Aman'){
+            // Aman paid Ranveer -> Aman’s debt decreases
+            balance -= amt;
+          } else if(e.by === 'Ranveer'){
+            // Ranveer paid Aman -> Ranveer’s debt decreases
+            balance += amt;
+          }
         }
       }
       return { balance, expR, expA, saleR, saleA };
     }
+
     function computePL(list){
       let expense=0, sales=0;
       for(const e of list){
-        if(e.type==='expense') expense += e.amount;
-        else if(e.type==='sale') sales += e.amount;
+        const amt = Number(e.amount || 0);
+        if(e.type==='expense') expense += amt;
+        else if(e.type==='sale') sales += amt;
       }
       return { sales, expense, pl: sales - expense };
     }
 
     function getFiltered(list){
-      // sort by date desc first
       const sorted = list.slice().sort((a,b)=> asDate(b.dateTS||b.date) - asDate(a.dateTS||a.date));
       const now = new Date();
       const startWeek = getStartOfWeek(now);
@@ -446,18 +760,40 @@
         if(currentRange==='week' && d < startWeek) return false;
         if(currentRange==='month' && d < startMonth) return false;
         if(currentRange==='year' && d < startYear) return false;
+
+        if(filterType !== 'all' && (e.type !== filterType)) return false;
+
+        if(filterBy === 'Ranveer' && e.by !== 'Ranveer') return false;
+        if(filterBy === 'Aman' && e.by !== 'Aman') return false;
+
+        if(filterStatus !== 'all'){
+          if(e.type !== 'sale') return false;
+          const status = e.status || 'paid';
+          if(status !== filterStatus) return false;
+        }
+
         if(search){
-          const blob = `${e.type} ${e.by} ${e.party||''} ${e.notes||''} ${e.createdByEmail||''}`.toLowerCase();
+          const blob = `${e.type||''} ${e.by||''} ${e.party||''} ${e.notes||''} ${e.createdByEmail||''} ${e.jobId||''} ${e.entryCategory||''}`.toLowerCase();
           if(!blob.includes(search)) return false;
         }
         return true;
       });
     }
 
+    function refreshSuppliers(){
+      if(!supplierListEl) return;
+      const names = Array.from(new Set(
+        cache
+          .filter(e=> e.type==='expense' && e.party)
+          .map(e=> String(e.party).trim())
+          .filter(Boolean)
+      )).sort((a,b)=> a.localeCompare(b));
+      supplierListEl.innerHTML = names.map(name=>`<option value="${name}"></option>`).join('');
+    }
+
     function renderAll(){
-      // Settlement uses filtered list (matches active range label)
       renderTableAndSettlement();
-      // Profit/Loss tiles use fixed periods regardless of current filter
+
       const now = new Date();
       const monthList = cache.filter(e=> asDate(e.dateTS||e.date) >= getStartOfMonth(now));
       const yearList  = cache.filter(e=> asDate(e.dateTS||e.date) >= getStartOfYear(now));
@@ -470,12 +806,19 @@
       renderPL(plMonth, plMonthMeta, m);
       renderPL(plYear,  plYearMeta,  y);
       renderPL(plLife,  plLifeMeta,  l);
+
+      const pendingSales = cache.filter(e=> e.type==='sale' && (e.status || 'paid') === 'pending');
+      const pendingAmount = pendingSales.reduce((sum,e)=> sum + (Number(e.amount||0)), 0);
+      pendingTotal.textContent = fmt(pendingAmount);
+      pendingMeta.textContent = pendingSales.length
+        ? `${pendingSales.length} pending sale${pendingSales.length>1?'s':''}`
+        : 'No pending payments.';
+
+      refreshSuppliers();
     }
 
     function renderPL(target, metaEl, obj){
       target.textContent = `${obj.pl >= 0 ? '+' : ''}${fmt(obj.pl)}`;
-      target.classList.toggle('text-base-good', obj.pl >= 0);
-      target.classList.toggle('text-base-bad', obj.pl < 0);
       target.style.color = obj.pl >= 0 ? '#34d399' : '#fb7185';
       metaEl.textContent = `Sales ${fmt(obj.sales)} • Expenses ${fmt(obj.expense)}`;
     }
@@ -484,10 +827,16 @@
       const entries = getFiltered(cache);
       const { balance, expR, expA, saleR, saleA } = computeSettlement(entries);
 
-      // Settlement box
-      if(balance > 0) settlementBox.textContent = `Aman owes Ranveer ${fmt(balance)}`;
-      else if(balance < 0) settlementBox.textContent = `Ranveer owes Aman ${fmt(Math.abs(balance))}`;
-      else settlementBox.textContent = 'You are square. 0.00 CAD';
+      if(balance > 0){
+        settlementBox.textContent = `Aman has to pay Ranveer ${fmt(balance)}`;
+        settlementBox.style.color = '#34d399';
+      } else if(balance < 0){
+        settlementBox.textContent = `Ranveer has to pay Aman ${fmt(Math.abs(balance))}`;
+        settlementBox.style.color = '#fb7185';
+      } else {
+        settlementBox.textContent = 'No one has to pay. You are settled.';
+        settlementBox.style.color = '#eef1ff';
+      }
 
       settleMeta.innerHTML = `
         <div>Total expenses — Ranveer: <b>${fmt(expR)}</b>, Aman: <b>${fmt(expA)}</b></div>
@@ -495,29 +844,69 @@
         <div>Entries shown: <b>${entries.length}</b> of ${cache.length}</div>
       `;
 
-      // Table
       tableBody.innerHTML = entries.map(e=>{
         const d = asDate(e.dateTS || e.date);
         const dateStr = isNaN(d) ? (e.date || '') : d.toISOString().slice(0,10);
-        const half = e.amount/2;
-        const owes = e.type==='expense'
-          ? (e.by==='Ranveer' ? `Aman → ${fmt(half)}` : `Ranveer → ${fmt(half)}`)
-          : (e.by==='Ranveer' ? `Ranveer → ${fmt(half)}` : `Aman → ${fmt(half)}`);
+        const amt = Number(e.amount || 0);
+        const half = amt/2;
+
+        let pays = '';
+
+        if (e.type === 'expense') {
+          // Other partner has to pay back half
+          if (e.by === 'Ranveer') {
+            pays = `Aman has to pay Ranveer ${fmt(half)}`;
+          } else if (e.by === 'Aman') {
+            pays = `Ranveer has to pay Aman ${fmt(half)}`;
+          }
+        } else if (e.type === 'sale') {
+          // Partner who made the sale has to give half to the other
+          if (e.by === 'Ranveer') {
+            pays = `Ranveer has to pay Aman ${fmt(half)}`;
+          } else if (e.by === 'Aman') {
+            pays = `Aman has to pay Ranveer ${fmt(half)}`;
+          }
+        } else if (e.type === 'settlement') {
+          // Full payment, no 50%
+          if (e.by === 'Ranveer') {
+            pays = `Ranveer paid Aman ${fmt(amt)}`;
+          } else if (e.by === 'Aman') {
+            pays = `Aman paid Ranveer ${fmt(amt)}`;
+          } else {
+            pays = 'Settlement';
+          }
+        }
+
+        const status = e.type === 'sale' ? (e.status || 'paid') : null;
+        const typeColorClass = e.type==='expense'
+          ? 'text-red-300'
+          : e.type==='sale'
+            ? 'text-green-300'
+            : 'text-blue-300';
+
+        let statusBadge = '';
+        if(status === 'pending'){
+          statusBadge = '<span class="ml-2 text-[10px] px-2 py-0.5 rounded-full bg-yellow-500/20 text-yellow-300">Pending</span>';
+        } else if(status === 'paid'){
+          statusBadge = '<span class="ml-2 text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300">Paid</span>';
+        }
+
         return `<tr>
           <td class="p-2">${dateStr}</td>
-          <td class="p-2 ${e.type==='expense'?'text-red-300':'text-green-300'}">${e.type}</td>
-          <td class="p-2">${e.by}</td>
-          <td class="p-2 text-right">${fmt(e.amount)}</td>
-          <td class="p-2">${e.party||''}</td>
-          <td class="p-2">${e.notes||''}</td>
-          <td class="p-2">${e.createdByEmail||''}</td>
-          <td class="p-2 text-right">${owes}</td>
-          <td class="p-2 text-right"><button class="link tap-target" data-id="${e.id}" data-action="edit">Edit</button></td>
+          <td class="p-2 ${typeColorClass}">${e.type || ''}${status ? statusBadge : ''}</td>
+          <td class="p-2">${e.by || ''}</td>
+          <td class="p-2 text-right">${fmt(amt)}</td>
+          <td class="p-2">${e.party || ''}</td>
+          <td class="p-2">${e.notes || ''}</td>
+          <td class="p-2 hidden md:table-cell">${e.createdByEmail || ''}</td>
+          <td class="p-2 text-right">${pays}</td>
+          <td class="p-2 text-right">
+            <button class="link tap-target text-indigo-300 underline text-xs" data-id="${e.id}" data-action="edit">Edit</button>
+          </td>
         </tr>`;
       }).join('');
     }
 
-    // Row edit -> open sheet prefilled
     tableBody.addEventListener('click', (ev)=>{
       const btn = ev.target.closest('button[data-action="edit"]');
       if(!btn) return;
@@ -525,19 +914,30 @@
       const e = cache.find(x=>x.id===id);
       if(!e) return;
       editingId = id;
-      document.getElementById('type').value = e.type;
-      document.getElementById('by').value = e.by;
-      document.getElementById('amount').value = e.amount;
-      document.getElementById('party').value = e.party || '';
+
+      setType(e.type || 'expense');
+      document.getElementById('by').value = e.by || 'Ranveer';
+      document.getElementById('amount').value = e.amount || 0;
+      partyInput.value = e.party || '';
       const d = asDate(e.dateTS || e.date);
       document.getElementById('date').value = isNaN(d) ? (e.date || '') : d.toISOString().slice(0,10);
       document.getElementById('notes').value = e.notes || '';
+      jobIdInput.value = e.jobId || '';
+      entryCategorySelect.value = e.entryCategory || '';
+      if(e.type === 'sale'){
+        statusSelect.value = e.status || 'paid';
+      } else {
+        statusSelect.value = 'paid';
+      }
+
       deleteEntryBtn.classList.remove('hidden');
+      formMsg.textContent = '';
       sheet.classList.add('on');
     });
 
-    // Init defaults
     document.getElementById('date').value = todayISO();
+    statusSelect.value = 'paid';
+    setType('expense');
   </script>
 </body>
 </html>
